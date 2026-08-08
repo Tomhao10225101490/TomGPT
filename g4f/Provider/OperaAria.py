@@ -64,6 +64,7 @@ class OperaAria(AsyncGeneratorProvider, ProviderModelMixin):
     models = [default_model, "aria-legacy"]
     image_models = [default_model]
     vision_models = [default_model]
+    model_aliases = {"free-multimodal": default_model}
 
     _model_to_version = {
         "aria": "v2",

@@ -130,8 +130,13 @@ class VersionUtils:
             except (ImportError, PackageNotFoundError):
                 return get_github_version(GITHUB_REPOSITORY)
             return get_pypi_version(PACKAGE_NAME)
-        except Exception:
-            return self.current_version
+        except Exception as error:
+            current = self.current_version
+            if current is not None:
+                return current
+            raise VersionNotFoundError(
+                "Unable to determine the latest or current g4f version"
+            ) from error
 
     @cached_property
     def latest_version_cached(self) -> str:

@@ -225,6 +225,16 @@ class Qwen(AsyncGeneratorProvider, ProviderModelMixin):
     vision_models = vision_models
     models: list[str] = models
     default_model: str = models[0]
+    model_aliases = {
+        "qwen-3.7-plus": "qwen3.7-plus",
+        "qwen-3.7-max": "qwen3.7-max",
+        "qwen-3-coder-plus": "qwen3-coder-plus",
+        "qwen-3.5-omni-plus": "qwen3.5-omni-plus",
+        "free-advanced": "qwen3.7-plus",
+        "free-reasoning": "qwen3.7-plus",
+        "free-coding": "qwen3-coder-plus",
+        "free-multimodal": "qwen3.5-omni-plus",
+    }
     tool_support_prompts = [
         "<tool_response> blocks, or any proprietary function-calling markup. Only the plain "
         "JSON object described below is allowed when a tool is needed.",

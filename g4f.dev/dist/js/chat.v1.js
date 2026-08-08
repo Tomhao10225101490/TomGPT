@@ -141,6 +141,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
             const targetContent = document.getElementById(`tab-${targetTab}`);
             if (targetContent) {
                 targetContent.classList.add('active');
+                targetContent.classList.remove('tomgpt-panel-enter');
+                void targetContent.offsetWidth;
+                targetContent.classList.add('tomgpt-panel-enter');
             }
             
             // Save active tab to appStorage
@@ -1600,7 +1603,7 @@ const handle_ask = async (do_ask_gpt = true, message = null) => {
     let message_id = get_message_id();
 
     const message_el = document.createElement("div");
-    message_el.classList.add("message");
+    message_el.classList.add("message", "tomgpt-is-new");
     message_el.dataset.index = message_index;
     message_el.innerHTML = `
         <div class="user">
@@ -1618,6 +1621,8 @@ const handle_ask = async (do_ask_gpt = true, message = null) => {
         </div>
     `;
     chatBody.appendChild(message_el);
+    message_el.classList.add("tomgpt-user-message", "tomgpt-state-sent");
+    tomgptComposerSent();
     highlight(message_el);
     if (do_ask_gpt && exportPrevious) {
         const ack = isTomgptZh()
@@ -2060,6 +2065,8 @@ async function add_message_chunk(message, message_id, provider, finish_message=n
         }
         await api("log", {...message, provider: provider_storage[message_id]});
     } else if (message.type == "error") {
+        content_map?.container?.classList.remove("tomgpt-state-thinking", "tomgpt-state-streaming");
+        content_map?.container?.classList.add("tomgpt-state-error");
         const raw = message.message || message.error || "";
         console.error(raw);
         // TomGPT: never show underlying provider/model failure dumps to users
@@ -2090,6 +2097,8 @@ async function add_message_chunk(message, message_id, provider, finish_message=n
         }
     } else if (message.type == "content") {
         if (message.content) {
+            content_map?.container?.classList.remove("tomgpt-state-thinking");
+            content_map?.container?.classList.add("tomgpt-state-streaming");
             if (!message_storage[message_id]) {
                 content_map.inner.innerHTML = '<pre><span class="cursor"></span><pre><br>';
                 content_map.innerPre = content_map.inner.querySelector("pre");
@@ -2376,7 +2385,8 @@ const ask_gpt = async (message_id, message_index = -1, regenerate = false, provi
     }
 
     const message_el = document.createElement("div");
-    message_el.classList.add("message");
+    message_el.classList.add("message", "tomgpt-is-new", "tomgpt-assistant-message", "tomgpt-state-thinking");
+    message_el.dataset.thinkingLabel = isTomgptZh() ? "TomGPT 正在思考" : "TomGPT is thinking";
     if (message_index != -1 || regenerate) {
         message_el.classList.add("regenerate");
     }
@@ -2388,7 +2398,7 @@ const ask_gpt = async (message_id, message_index = -1, regenerate = false, provi
         </div>
         <div class="content">
             <div class="provider" data-provider="${provider}"></div>
-            <div class="content_inner"><span class="cursor"></span></div>
+            <div class="content_inner tomgpt-streaming"><span class="cursor"></span></div>
             <div class="count"></div>
         </div>
     `;
@@ -2410,6 +2420,10 @@ const ask_gpt = async (message_id, message_index = -1, regenerate = false, provi
         count: content_el.querySelector('.count'),
         message_index: message_index,
     }
+    if (content_map.inner) {
+        content_map.inner.dataset.thinkingLabel = message_el.dataset.thinkingLabel;
+    }
+    content_map.inner?.classList.add("tomgpt-streaming");
 
     // TomGPT hard gate (client): identity questions never hit underlying models
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
@@ -2529,10 +2543,18 @@ const ask_gpt = async (message_id, message_index = -1, regenerate = false, provi
         if (controller_storage[message_id]) {
             delete controller_storage[message_id];
         }
+        // End streaming motion before reload
+        if (content_storage[message_id]?.inner) {
+            content_storage[message_id].inner.classList.remove("tomgpt-streaming", "tomgpt-ink-pulse");
+        }
+        content_storage[message_id]?.container?.classList.remove("tomgpt-state-thinking", "tomgpt-state-streaming");
+        content_storage[message_id]?.container?.classList.add("tomgpt-state-complete", "tomgpt-settle");
         // Reload conversation if no error
         if (message_storage[message_id] && !document.body.classList.contains("screen-reader")) {
             try {
                 if(await safe_load_conversation(window.conversation_id)) {
+                    const lastAssistant = [...chatBody.querySelectorAll(".message:has(> .assistant)")].pop();
+                    lastAssistant?.classList.add("tomgpt-settle");
                     // Play last message async
                     if(!await play_last_message(content_data_storage[message_id])) {
                         if (action === "next" && final_message) {
@@ -2749,13 +2771,31 @@ const ask_gpt = async (message_id, message_index = -1, regenerate = false, provi
         }];
     }
     let lastValue = "";
-    requestAnimationFrame(function update() {
+    let lastRenderAt = 0;
+    let lastInkPulseAt = 0;
+    const streamRenderInterval = 64;
+    const inkPulseInterval = 140;
+    requestAnimationFrame(function update(now) {
         if (!(message_id in message_storage)) {
             return;
-        } else if (message_storage[message_id] != lastValue) {
-            content_storage[message_id].inner.innerHTML = renderer(message_storage[message_id]);
-            highlight(content_storage[message_id].inner);
+        } else if (
+            message_storage[message_id] != lastValue
+            && now - lastRenderAt >= streamRenderInterval
+        ) {
+            const inner = content_storage[message_id]?.inner;
+            if (inner) {
+                inner.innerHTML = renderer(message_storage[message_id]) + ' <span class="cursor"></span>';
+                highlight(inner);
+                inner.classList.add("tomgpt-streaming");
+                if (!tomgptMotionReduced() && now - lastInkPulseAt >= inkPulseInterval) {
+                    inner.classList.remove("tomgpt-ink-pulse");
+                    void inner.offsetWidth;
+                    inner.classList.add("tomgpt-ink-pulse");
+                    lastInkPulseAt = now;
+                }
+            }
             lastValue = message_storage[message_id];
+            lastRenderAt = now;
         }
         requestAnimationFrame(update);
     });
@@ -3423,7 +3463,7 @@ const load_conversation = async (conversation, append = false) => {
         }
 
         const messageElement = `
-            <div class="message${item.regenerate ? " regenerate": ""}" data-index="${i}" data-object_url="${objectUrl}" data-synthesize_url="${synthesize_url}">
+            <div class="message tomgpt-no-enter tomgpt-${item.role}-message tomgpt-state-complete${item.regenerate ? " regenerate": ""}" data-index="${i}" data-object_url="${objectUrl}" data-synthesize_url="${synthesize_url}">
                 <div class="${item.role}">
                     ${item.role == "assistant" ? gpt_image : user_image}
                     <i class="fa-solid fa-xmark"></i>
@@ -3503,6 +3543,7 @@ const load_conversation = async (conversation, append = false) => {
             });
             chatBody.querySelectorAll('.suggestions').forEach((suggestions_el) => suggestions_el.remove());
             chatBody.appendChild(suggestions_el);
+            applyTomgptSuggestionMotion(suggestions_el);
         } catch (e) {
             add_error("Error showing suggestions:", e);
         }
@@ -3855,10 +3896,16 @@ function open_settings() {
         chat.classList.add("hidden");
         sidebar.classList.remove("shown");
         settings.classList.remove("hidden");
+        settings.classList.remove("tomgpt-panel-enter");
+        void settings.offsetWidth;
+        settings.classList.add("tomgpt-panel-enter");
         add_url_to_history("#settings");
     } else {
         settings.classList.add("hidden");
         chat.classList.remove("hidden");
+        chat.classList.remove("tomgpt-panel-enter");
+        void chat.offsetWidth;
+        chat.classList.add("tomgpt-panel-enter");
         add_url_to_history(window.conversation_id ? `#${window.conversation_id}` : window.location.search);
     }
     logStorage.classList.add("hidden");
@@ -4088,6 +4135,126 @@ const load_settings_storage = async () => {
     });
 }
 
+function tomgptMotionReduced() {
+    return document.body.classList.contains("no-animations")
+        || (typeof window.matchMedia === "function"
+            && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+
+function tomgptComposerSent() {
+    const composer = userInput?.closest(".input-area");
+    const status = document.getElementById("tomgpt-composer-status");
+    if (!composer) {
+        return;
+    }
+    composer.classList.remove("tomgpt-has-value", "tomgpt-send-success");
+    if (status) {
+        status.textContent = isTomgptZh() ? "消息已发送" : "Message sent";
+    }
+    if (tomgptMotionReduced()) {
+        window.setTimeout(() => {
+            if (status) status.textContent = "";
+        }, 500);
+        return;
+    }
+    void composer.offsetWidth;
+    composer.classList.add("tomgpt-send-success");
+    window.setTimeout(() => {
+        composer.classList.remove("tomgpt-send-success");
+        if (status) status.textContent = "";
+    }, 620);
+}
+
+function tomgptFlowText(el, text) {
+    if (!el) {
+        return;
+    }
+    if (tomgptMotionReduced() || !text) {
+        el.classList.remove("tomgpt-flowing");
+        el.textContent = text || "";
+        return;
+    }
+    el.textContent = "";
+    el.classList.add("tomgpt-flowing");
+    const isZh = /[\u4e00-\u9fff]/.test(text);
+    const units = isZh
+        ? Array.from(text)
+        : text.split(/(\s+)/).filter((part) => part.length);
+    units.forEach((unit, i) => {
+        const span = document.createElement("span");
+        span.className = "tomgpt-flow-word";
+        span.style.setProperty("--i", String(i));
+        span.textContent = unit;
+        el.appendChild(span);
+    });
+}
+
+function setupTomgptSuggestionTilt(el) {
+    if (!el || el.dataset.tomgptTiltReady === "true"
+        || tomgptMotionReduced()
+        || !window.matchMedia?.("(hover: hover) and (pointer: fine)").matches) {
+        return;
+    }
+    el.dataset.tomgptTiltReady = "true";
+    let frame = 0;
+    let pointerX = 0;
+    let pointerY = 0;
+    el.addEventListener("pointermove", (event) => {
+        pointerX = event.clientX;
+        pointerY = event.clientY;
+        if (frame) return;
+        frame = requestAnimationFrame(() => {
+            frame = 0;
+            const rect = el.getBoundingClientRect();
+            const x = Math.max(0, Math.min(1, (pointerX - rect.left) / rect.width));
+            const y = Math.max(0, Math.min(1, (pointerY - rect.top) / rect.height));
+            el.style.setProperty("--pointer-x", `${x * 100}%`);
+            el.style.setProperty("--pointer-y", `${y * 100}%`);
+            el.style.setProperty("--tilt-x", `${(0.5 - y) * 3.5}deg`);
+            el.style.setProperty("--tilt-y", `${(x - 0.5) * 4.5}deg`);
+            el.classList.add("tomgpt-pointer-active");
+        });
+    }, { passive: true });
+    el.addEventListener("pointerleave", () => {
+        if (frame) {
+            cancelAnimationFrame(frame);
+            frame = 0;
+        }
+        el.classList.remove("tomgpt-pointer-active");
+        el.style.removeProperty("--tilt-x");
+        el.style.removeProperty("--tilt-y");
+    }, { passive: true });
+}
+
+function applyTomgptSuggestionMotion(suggestionsEl) {
+    if (!suggestionsEl) {
+        return;
+    }
+    const isWelcomeScene = suggestionsEl.previousElementSibling?.classList.contains("tomgpt-empty");
+    suggestionsEl.classList.toggle("tomgpt-welcome-suggestions", Boolean(isWelcomeScene));
+    const buttons = [...suggestionsEl.querySelectorAll(".suggestion")];
+    buttons.forEach((el, i) => {
+        el.style.setProperty("--i", String(i));
+        el.classList.add("tomgpt-suggest-motion");
+        setupTomgptSuggestionTilt(el);
+        el.addEventListener("click", () => {
+            el.classList.add("tomgpt-suggestion-selected");
+            buttons.forEach((other) => {
+                if (other !== el) other.classList.add("tomgpt-suggestion-muted");
+            });
+        }, { once: true });
+    });
+    suggestionsEl.classList.remove("tomgpt-suggestions-live");
+    if (tomgptMotionReduced()) {
+        return;
+    }
+    window.setTimeout(() => {
+        if (document.body.contains(suggestionsEl)) {
+            suggestionsEl.classList.add("tomgpt-suggestions-live");
+        }
+    }, isWelcomeScene ? 1650 : 700);
+}
+
 const say_hello = async () => {
     const greeting = (navigator.language || "").startsWith("zh")
         ? "有什么可以帮忙的？"
@@ -4097,13 +4264,21 @@ const say_hello = async () => {
     if (!to_modify) {
         const message_container = document.createElement("div");
         message_container.innerHTML = `
-            <div class="message tomgpt-empty">
+            <div class="message tomgpt-empty tomgpt-is-new">
                 <div class="assistant">
                     ${gpt_image}
                 </div>
                 <div class="content">
-                    <h1 class="welcome-brand">TomGPT</h1>
+                    <div class="welcome-kicker"><span aria-hidden="true"></span> TOMGPT INTELLIGENCE</div>
+                    <div class="welcome-brand-stage">
+                        <span class="welcome-orbit welcome-orbit-a" aria-hidden="true"></span>
+                        <span class="welcome-orbit welcome-orbit-b" aria-hidden="true"></span>
+                        <h1 class="welcome-brand" data-brand="TomGPT">TomGPT</h1>
+                    </div>
                     <p class="welcome-message"></p>
+                    <p class="welcome-subtitle">${isTomgptZh()
+                        ? "免费智能路由 · 视觉理解 · 图像生成 · 文档分析"
+                        : "Free intelligent routing · Vision · Image · Documents"}</p>
                 </div>
             </div>
         `;
@@ -4119,13 +4294,17 @@ const say_hello = async () => {
                 h.textContent = "TomGPT";
                 content.insertBefore(h, content.firstChild);
             }
+        } else {
+            // Retrigger brand enter
+            brand.style.animation = "none";
+            void brand.offsetWidth;
+            brand.style.animation = "";
         }
     }
 
     to_modify = document.querySelector(`.welcome-message`);
     document.querySelector(".chat-top-panel .convo-title")?.replaceChildren(document.createTextNode("TomGPT"));
-    // ChatGPT-style: show greeting immediately (no slow token drip)
-    to_modify.textContent = greeting;
+    tomgptFlowText(to_modify, greeting);
 }
 
 function count_tokens(model, text, prompt_tokens = 0) {
@@ -4310,6 +4489,7 @@ function render_startup_questions() {
         });
         chatBody.querySelectorAll('.suggestions').forEach((suggestions_el) => suggestions_el.remove());
         chatBody.appendChild(suggestions_el);
+        applyTomgptSuggestionMotion(suggestions_el);
     } catch (e) {
         add_error("Failed to render startup questions:", e);
     }
@@ -4809,6 +4989,15 @@ async function on_api() {
             await handle_ask(!do_enter);
         }
     });
+    const composer = userInput.closest(".input-area");
+    const syncComposerState = () => {
+        if (!composer) return;
+        composer.classList.toggle("tomgpt-has-value", Boolean(userInput.value.trim()));
+    };
+    userInput.addEventListener("input", syncComposerState, { passive: true });
+    userInput.addEventListener("focus", () => composer?.classList.add("tomgpt-is-focused"));
+    userInput.addEventListener("blur", () => composer?.classList.remove("tomgpt-is-focused"));
+    syncComposerState();
     let timeoutBlur = null;
     userInput.addEventListener("focus", async (evt) => {
         userInput.style.height = userInputHeight?.value + "px";
@@ -5086,12 +5275,18 @@ async function on_api() {
     }
     const disableAnimations = document.getElementById("disableAnimations");
     if (disableAnimations) {
+        // TomGPT default: animations ON unless user explicitly disables
+        const storedDisable = appStorage.getItem("disableAnimations");
+        const animationsOff = storedDisable === "true" || storedDisable === true;
+        disableAnimations.checked = animationsOff;
+        document.body.classList.toggle("no-animations", animationsOff);
+        if (storedDisable === null || storedDisable === undefined) {
+            appStorage.setItem("disableAnimations", "false");
+        }
         disableAnimations.addEventListener('change', async (event) => {
-            if (event.target.checked) {
-                document.body.classList.add("no-animations");
-            } else {
-                document.body.classList.remove("no-animations");
-            }
+            const off = !!event.target.checked;
+            appStorage.setItem("disableAnimations", off ? "true" : "false");
+            document.body.classList.toggle("no-animations", off);
         });
     }
 

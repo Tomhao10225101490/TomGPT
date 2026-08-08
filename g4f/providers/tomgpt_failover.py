@@ -92,7 +92,8 @@ class PreferredThenAny(BaseRetryProvider):
             fail_reason = e
             debug.error(f"TomGPT: {preferred.__name__} failed:", e)
             if started:
-                raise
+                yield "\n\n> 回复可能不完整：当前通道中途断开，请点击“重新生成”重试。"
+                return
 
         if not preferred_failed:
             return

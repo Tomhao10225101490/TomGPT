@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import json
+import asyncio
 from ..typing import AsyncResult, Messages, MediaListType, Union
 from ..errors import ModelNotFoundError
 from ..image import is_data_an_audio
@@ -29,6 +30,67 @@ from .any_model_map import (
     model_aliases,
 )
 
+ANONYMOUS_DEFAULT_PROVIDERS = (
+    "Qwen",
+    "CopilotApp",
+    "OperaAria",
+    "Pollinations",
+    "TeachAnything",
+)
+
+# Curated capability routes use provider-specific aliases which are verified
+# against each provider's get_models()/model_aliases. All providers here work
+# without a user API key, account login, or interactive browser flow.
+FREE_MODEL_ROUTES = {
+    "free-advanced": {
+        "Qwen": "qwen3.7-plus",
+        "CopilotApp": "smart",
+        "Pollinations": "gpt-oss",
+    },
+    "free-reasoning": {
+        "CopilotApp": "reasoning",
+        "Qwen": "qwen3.7-plus",
+        "Pollinations": "gpt-oss",
+    },
+    "free-coding": {
+        "Qwen": "qwen3-coder-plus",
+        "Pollinations": "kimi-code",
+    },
+    "free-multimodal": {
+        "Qwen": "qwen3.5-omni-plus",
+        "OperaAria": "aria",
+    },
+}
+
+FREE_CANONICAL_MODEL_ROUTES = {
+    "qwen-3.7-plus": {"Qwen": "qwen3.7-plus"},
+    "qwen-3.7-max": {"Qwen": "qwen3.7-max"},
+    "qwen-3-coder-plus": {"Qwen": "qwen3-coder-plus"},
+    "qwen-3.5-omni-plus": {"Qwen": "qwen3.5-omni-plus"},
+    "gpt-oss-20b": {"Pollinations": "gpt-oss"},
+    "llama-3.3-70b": {"Pollinations": "llama"},
+    "kimi-k2.7-code": {"Pollinations": "kimi-code"},
+    "glm-5.2": {"Pollinations": "glm"},
+}
+
+
+def _apply_curated_free_routes(target: dict[str, dict[str, str]]) -> None:
+    """Keep persisted discovery data from reintroducing auth-first defaults."""
+    target["default"] = {name: "" for name in ANONYMOUS_DEFAULT_PROVIDERS}
+    target.update(
+        {name: routes.copy() for name, routes in FREE_CANONICAL_MODEL_ROUTES.items()}
+    )
+    target.update({name: routes.copy() for name, routes in FREE_MODEL_ROUTES.items()})
+    for name, routes in FREE_MODEL_ROUTES.items():
+        if len(routes) > 1:
+            models_count[name] = len(routes)
+    for name in ("qwen-3.7-plus", "qwen-3.5-omni-plus", "free-multimodal"):
+        if name not in vision_models:
+            vision_models.append(name)
+
+
+_apply_curated_free_routes(model_map)
+
 # Add providers to existing models on map
 PROVIDERS_LIST_2 = [
     "OpenaiChat",
@@ -47,6 +109,71 @@ PROVIDERS_LIST_2 = [
     "HuggingFaceMedia",
 ]
 
+
+def wants_image_generation(text: str) -> bool:
+    """Return whether a user prompt explicitly requests image generation."""
+    if not text:
+        return False
+    t = text.lower().strip()
+    is_recognize = bool(
+        re.search(
+            r"识别|分析|看看|解释|identify|analy[sz]e|describe|"
+            r"what('s| is).{0,20}(image|photo|picture)",
+            t,
+            re.I,
+        )
+    )
+    is_generate_verb = bool(
+        re.search(
+            r"生成|画一|帮我画|文生图|出一张图|做一张图|generate|draw\s+|"
+            r"create\s+|make\s+|dall-?e|stable\s*diffusion|"
+            r"text[\s-]?to[\s-]?image|flux",
+            t,
+            re.I,
+        )
+    )
+    if is_recognize and not is_generate_verb:
+        return False
+    if re.search(
+        r"word|docx|文档|文章|报告|纪要|论文|代码|总结|方案|游记|作文|小说",
+        t,
+        re.I,
+    ) and not re.search(r"图片|图像|照片|示意图|配图|海报|插画|图", t, re.I):
+        return False
+    if re.search(
+        r"生成.*(图片|图像|照片|示意图|配图|海报)|画一[张幅只面]|帮我画|文生图|"
+        r"出一张图|做一张图|生成一张|(给我|帮我)(生成|画).{0,16}(图片|图像|照片)|"
+        r"draw\s+(me\s+)?(an?\s+)?|generate\s+(an?\s+)?(image|picture|photo|illustration)|"
+        r"create\s+(an?\s+)?(image|picture|illustration)|"
+        r"make\s+(me\s+)?(an?\s+)?(image|picture|photo)|"
+        r"text[\s-]?to[\s-]?image|dall-?e|stable\s*diffusion",
+        t,
+        re.I,
+    ):
+        return True
+    if re.search(
+        r"(帮我|请)?(生成|画).{0,40}"
+        r"(国旗|旗帜|图标|logo|壁纸|头像|插画|漫画|表情包|banner|flag|"
+        r"风景|人物|角色|小猫|小狗|猫|狗)",
+        t,
+        re.I,
+    ):
+        return True
+    if re.search(
+        r"(generate|draw|create|make)\b.{0,40}\b"
+        r"(flag|logo|wallpaper|avatar|illustration|banner|cat|dog)\b",
+        t,
+        re.I,
+    ):
+        return True
+    return bool(
+        re.search(
+            r"^(帮我|请)?(生成|画一?[张幅只面]?)[^，。！？\n]{1,40}$",
+            t,
+            re.I,
+        )
+    )
+
 # Add all models to the model map
 PROVIDERS_LIST_3 = [
     "DeepInfra",
@@ -57,6 +184,7 @@ PROVIDERS_LIST_3 = [
 LABELS = {
     "default": "Default",
     "custom": "Custom Routes",
+    "free": "Free Advanced",
     "openai": "OpenAI: ChatGPT",
     "llama": "Meta: LLaMA",
     "deepseek": "DeepSeek",
@@ -171,6 +299,7 @@ class AnyModelProviderMixin(ProviderModelMixin):
                 for name, (model, providers) in models.__models__.items()
             }
         )
+        _apply_curated_free_routes(cls.model_map)
         for name, (model, providers) in models.__models__.items():
             if isinstance(model, models.ImageModel):
                 cls.image_models.append(name)
@@ -334,6 +463,9 @@ class AnyModelProviderMixin(ProviderModelMixin):
             elif model.startswith(("qwen", "Qwen", "qwq", "qvq")):
                 groups["qwen"].append(model)
                 added = True
+            elif model.startswith("free-"):
+                groups["free"].append(model)
+                added = True
             # Check for Microsoft Phi models
             elif (
                 model.startswith(("phi-", "microsoft/")) or "wizardlm" in model.lower()
@@ -443,72 +575,6 @@ class AnyProvider(AsyncGeneratorProvider, AnyModelProviderMixin):
                     return " ".join(parts).strip()
             return ""
 
-        def _wants_image_generation(text: str) -> bool:
-            if not text:
-                return False
-            t = text.lower().strip()
-            is_recognize = bool(
-                re.search(
-                    r"识别|分析|看看|解释|identify|analy[sz]e|describe|"
-                    r"what('s| is).{0,20}(image|photo|picture)",
-                    t,
-                    re.I,
-                )
-            )
-            is_generate_verb = bool(
-                re.search(
-                    r"生成|画一|帮我画|文生图|出一张图|做一张图|generate|draw\s+|"
-                    r"create\s+|make\s+|dall-?e|stable\s*diffusion|"
-                    r"text[\s-]?to[\s-]?image|flux",
-                    t,
-                    re.I,
-                )
-            )
-            if is_recognize and not is_generate_verb:
-                return False
-            # Document / text deliverables — not image gen
-            if re.search(
-                r"word|docx|文档|文章|报告|纪要|论文|代码|总结|方案|游记|作文|小说",
-                t,
-                re.I,
-            ) and not re.search(r"图片|图像|照片|示意图|配图|海报|插画|图", t, re.I):
-                return False
-            if re.search(
-                r"生成.*(图片|图像|照片|示意图|配图|海报)|画一[张幅只面]|帮我画|文生图|"
-                r"出一张图|做一张图|生成一张|(给我|帮我)(生成|画).{0,16}(图片|图像|照片)|"
-                r"draw\s+(me\s+)?(an?\s+)?|generate\s+(an?\s+)?(image|picture|photo|illustration)|"
-                r"create\s+(an?\s+)?(image|picture|illustration)|"
-                r"make\s+(me\s+)?(an?\s+)?(image|picture|photo)|"
-                r"text[\s-]?to[\s-]?image|dall-?e|stable\s*diffusion",
-                t,
-                re.I,
-            ):
-                return True
-            # Visual subjects without saying「图片」— e.g.「帮我生成美国国旗」
-            if re.search(
-                r"(帮我|请)?(生成|画).{0,40}"
-                r"(国旗|旗帜|图标|logo|壁纸|头像|插画|漫画|表情包|banner|flag|"
-                r"风景|人物|角色|小猫|小狗|猫|狗)",
-                t,
-                re.I,
-            ):
-                return True
-            if re.search(
-                r"(generate|draw|create|make)\b.{0,40}\b"
-                r"(flag|logo|wallpaper|avatar|illustration|banner|cat|dog)\b",
-                t,
-                re.I,
-            ):
-                return True
-            # Short imperative:「(帮我/请)?生成/画…」
-            if re.search(
-                r"^(帮我|请)?(生成|画一?[张幅只面]?)[^，。！？\n]{1,40}$",
-                t,
-                re.I,
-            ):
-                return True
-            return False
-
         def _flatten_messages_for_text_fallback(msgs):
             """Collapse multimodal list content to plain text for chat-only backends."""
             out = []
@@ -535,7 +601,7 @@ class AnyProvider(AsyncGeneratorProvider, AnyModelProviderMixin):
 
         # Explicit image-generation asks → force a real image model (not chat hallucination)
         force_image_gen = False
-        if (not model or model in ("", "default", cls.default_model)) and _wants_image_generation(
+        if (not model or model in ("", "default", cls.default_model)) and wants_image_generation(
             _last_user_text(messages)
         ):
             debug.log("AnyProvider: image-generation intent detected → model=flux")
@@ -695,20 +761,38 @@ class AnyProvider(AsyncGeneratorProvider, AnyModelProviderMixin):
         if quiet:
             providers = quiet
 
-        # Free-first + live-score + non-browser routing
+        # Stable quality-first routing. Live score only breaks ties inside a
+        # quality tier, so a cold start never promotes a weak provider.
+        quality_tier = {
+            "Qwen": 0,
+            "GLM": 0,
+            "CopilotApp": 0,
+            "OperaAria": 0,
+            "Pollinations": 1,
+            "TeachAnything": 1,
+            "Together": 1,
+            "HuggingSpace": 2,
+            "Ollama": 3,
+            "DeepInfra": 3,
+            "OpenaiChat": 3,
+        }
+
+        def _provider_sort_key(p):
+            auth_rank = bool(getattr(p, "needs_auth", False))
+            browser_rank = bool(_opens_external_browser(p))
+            quality_rank = quality_tier.get(getattr(p, "__name__", ""), 2)
+            live_rank = -int(getattr(p, "live", 0) or 0)
+            return auth_rank, browser_rank, quality_rank, live_rank
+
+        # Free-first + stable-quality + live-score + non-browser routing
         has_api_key = bool(api_key) or bool(kwargs.get("api_key"))
         if not has_api_key:
-            providers.sort(
-                key=lambda p: (
-                    bool(getattr(p, "needs_auth", False)),
-                    bool(_opens_external_browser(p)),
-                    -int(getattr(p, "live", 0) or 0),
-                )
-            )
+            providers.sort(key=_provider_sort_key)
         else:
             providers.sort(
                 key=lambda p: (
                     bool(_opens_external_browser(p)),
+                    quality_tier.get(getattr(p, "__name__", ""), 2),
                     -int(getattr(p, "live", 0) or 0),
                 )
             )
@@ -803,6 +887,39 @@ class AnyProvider(AsyncGeneratorProvider, AnyModelProviderMixin):
                         continue
                 raise RuntimeError("图片生成失败，请再试一次。") from first_error
 
+            # A transient outage can make a whole free pool fail at once.
+            # Briefly back off, then retry healthy candidates with fresh
+            # sessions before crossing into a weaker fallback pool.
+            healthy_retry = [
+                p for p in providers if int(getattr(p, "live", 0) or 0) >= 0
+            ]
+            if not healthy_retry:
+                healthy_retry = providers[: min(3, len(providers))]
+            if healthy_retry:
+                await asyncio.sleep(0.5)
+                debug.log(
+                    "AnyProvider: retrying quality pool after short backoff: "
+                    f"{[p.__name__ for p in healthy_retry]}"
+                )
+                try:
+                    async for chunk in RotatedProvider(
+                        healthy_retry, False
+                    ).create_async_generator(
+                        model,
+                        messages,
+                        stream=stream,
+                        media=media,
+                        api_key=api_key,
+                        conversation=None,
+                        **kwargs_no_conv,
+                    ):
+                        yield chunk
+                    return
+                except Exception as retry_error:
+                    debug.error(
+                        "AnyProvider: quality-pool retry failed:", retry_error
+                    )
+
             # TomGPT last resort: retry with the other free pool (vision ↔ chat)
             debug.log(
                 f"AnyProvider: pool failed ({first_error}); "
@@ -848,13 +965,7 @@ class AnyProvider(AsyncGeneratorProvider, AnyModelProviderMixin):
             default_providers = quiet_defaults
 
         if not has_api_key:
-            default_providers.sort(
-                key=lambda p: (
-                    bool(getattr(p, "needs_auth", False)),
-                    bool(_opens_external_browser(p)),
-                    -int(getattr(p, "live", 0) or 0),
-                )
-            )
+            default_providers.sort(key=_provider_sort_key)
 
         # Flatten multimodal list content for chat fallback — Ollama etc. reject arrays
         fallback_messages = (

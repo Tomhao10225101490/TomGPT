@@ -19,5 +19,10 @@ from .mcp import *
 from .tool_support_provider import *
 from .config_provider import *
 from .test_gemini import *
+from .tomgpt_intent import *
+from .tomgpt_failover import *
+from .tomgpt_export_docx import *
+from .tomgpt_default_pool import *
+from .tomgpt_free_models import *
 
 unittest.main()

@@ -175,9 +175,12 @@ class RotatedProvider(BaseRetryProvider):
                 exceptions[provider.__name__] = e
                 debug.error(f"{provider.__name__} failed: {e}")
                 _drop_provider_conversation(conversation, provider.__name__)
-                # Do not stitch another provider mid-stream — keep reply coherent
+                # Do not stitch another provider mid-stream. Preserve the
+                # coherent partial answer and clearly tell the user what
+                # happened instead of turning it into a hard error bubble.
                 if started:
-                    raise
+                    yield "\n\n> 回复可能不完整：当前通道中途断开，请点击“重新生成”重试。"
+                    return
                 # Aborted/previous chats often leave Qwen/etc. stuck IN_PROGRESS —
                 # retry once with a fresh provider session before rotating away.
                 if _is_stale_session_error(e):

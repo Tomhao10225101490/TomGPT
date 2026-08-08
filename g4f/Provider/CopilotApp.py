@@ -26,6 +26,8 @@ class CopilotApp(AsyncGeneratorProvider, ProviderModelMixin):
         "o1-preview": "reasoning",
         "o3-mini": "reasoning",
         "gpt-5": "smart",
+        "free-advanced": "smart",
+        "free-reasoning": "reasoning",
     }
 
     @classmethod

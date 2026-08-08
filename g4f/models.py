@@ -120,17 +120,13 @@ default = Model(
     base_provider="",
     best_provider=IterListProvider(
         [
-            "CopilotApp",
             "Qwen",
+            "CopilotApp",
+            "OperaAria",
             "Pollinations",
             "TeachAnything",
-            "OperaAria",
-            "Together",
-            "GLM",
-            "Ollama",
-            "DeepInfra",
-            "OpenaiChat",
-        ]
+        ],
+        shuffle=False,
     ),
 )
 
@@ -139,18 +135,11 @@ default_vision = VisionModel(
     base_provider="",
     best_provider=IterListProvider(
         [
-            # Free-first vision pool (TomGPT). Skip Ollama/DeepInfra here —
-            # they often reject multimodal list content and poison the rotation.
+            # Anonymous, no-key vision providers only. Providers which may open
+            # a browser, require an account, or accept text only stay out.
             "Qwen",
-            "GLM",
             "OperaAria",
-            "CopilotApp",
             "Pollinations",
-            "Together",
-            "HuggingSpace",
-            "GeminiPro",
-            "OpenaiAccount",
-            "Gemini",
         ],
         shuffle=False,
     ),
@@ -234,6 +223,13 @@ gpt_oss_120b = Model(
     best_provider=IterListProvider(["Together", "OpenRouter", "Groq"]),
 )
 
+gpt_oss_20b = Model(
+    name="gpt-oss-20b",
+    long_name="gpt-oss",
+    base_provider="OpenAI",
+    best_provider="Pollinations",
+)
+
 # dall-e
 dall_e_3 = ImageModel(
     name="dall-e-3",
@@ -308,7 +304,10 @@ llama_3_2_90b = Model(
 
 # llama-3.3
 llama_3_3_70b = Model(
-    name="llama-3.3-70b", base_provider="Meta Llama", best_provider=None
+    name="llama-3.3-70b",
+    base_provider="Meta Llama",
+    best_provider="Pollinations",
+    long_name="llama",
 )
 
 # llama-4
@@ -426,6 +425,34 @@ command_a = Model(
 )
 
 ### "Qwen" ###
+qwen_3_7_plus = VisionModel(
+    name="qwen-3.7-plus",
+    long_name="qwen3.7-plus",
+    base_provider="Qwen",
+    best_provider="Qwen",
+)
+
+qwen_3_7_max = Model(
+    name="qwen-3.7-max",
+    long_name="qwen3.7-max",
+    base_provider="Qwen",
+    best_provider="Qwen",
+)
+
+qwen_3_coder_plus = Model(
+    name="qwen-3-coder-plus",
+    long_name="qwen3-coder-plus",
+    base_provider="Qwen",
+    best_provider="Qwen",
+)
+
+qwen_3_5_omni_plus = VisionModel(
+    name="qwen-3.5-omni-plus",
+    long_name="qwen3.5-omni-plus",
+    base_provider="Qwen",
+    best_provider="Qwen",
+)
+
 qwen_2_5_coder_32b = Model(
     name="qwen-2.5-coder-32b",
     base_provider="Qwen",
@@ -503,6 +530,20 @@ kimi = Model(
     base_provider="kimi.com",
     best_provider=IterListProvider(["Groq"]),
     long_name="moonshotai/Kimi-K2-Instruct",
+)
+
+kimi_k2_7_code = Model(
+    name="kimi-k2.7-code",
+    long_name="kimi-code",
+    base_provider="Moonshot AI",
+    best_provider="Pollinations",
+)
+
+glm_5_2 = Model(
+    name="glm-5.2",
+    long_name="glm",
+    base_provider="Z.ai",
+    best_provider="Pollinations",
 )
 
 ### "Perplexity" AI ###

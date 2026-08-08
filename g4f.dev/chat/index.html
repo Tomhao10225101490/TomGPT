@@ -26,8 +26,8 @@
     <!-- Canonical URL to avoid duplicate content issues -->
     <link rel="canonical" href="/chat/" />
 
-    <link rel="stylesheet" href="../dist/css/style.css?v=tomgpt-flag-image-7" />
-    <link rel="stylesheet" href="../dist/css/tomgpt.css?v=tomgpt-flag-image-7" />
+    <link rel="stylesheet" href="../dist/css/style.css?v=tomgpt-brand-11" />
+    <link rel="stylesheet" href="../dist/css/tomgpt.css?v=tomgpt-brand-11" />
     <link rel="stylesheet" href="../dist/css/all.min.css" />
     <link rel="stylesheet" href="../dist/css/dracula.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe/dist/photoswipe.css" />
@@ -38,9 +38,9 @@
     <link rel="apple-touch-icon" href="../dist/img/g4f.svg">
     <link rel="manifest" href="../dist/img/site.webmanifest">
 
-    <script src="../dist/js/framework.js?v=tomgpt-flag-image-7" defer></script>
-    <script src="../dist/js/mcp-client.js?v=tomgpt-flag-image-7" defer></script>
-    <script src="../dist/js/chat.v1.js?v=tomgpt-flag-image-7" defer></script>
+    <script src="../dist/js/framework.js?v=tomgpt-brand-11" defer></script>
+    <script src="../dist/js/mcp-client.js?v=tomgpt-brand-11" defer></script>
+    <script src="../dist/js/chat.v1.js?v=tomgpt-brand-11" defer></script>
     <script src="../dist/js/recorder.js" async></script>
     <script src="../dist/js/highlight.min.js" async></script>
     <script src="../dist/js/highlightjs-copy.min.js" async></script>
@@ -103,8 +103,8 @@
       window.conversation_id = "";
     </script>
 
-    <link rel="preload" href="../dist/css/style.css?v=tomgpt-flag-image-7" as="style">
-    <link rel="preload" href="../dist/js/chat.v1.js?v=tomgpt-flag-image-7" as="script">
+    <link rel="preload" href="../dist/css/style.css?v=tomgpt-brand-11" as="style">
+    <link rel="preload" href="../dist/js/chat.v1.js?v=tomgpt-brand-11" as="script">
 </head>
 <body class="tomgpt">
     <script async>
@@ -121,7 +121,8 @@
         var tc = document.getElementById("tomgpt-theme-color");
         if (tc) tc.setAttribute("content", "#f8fafc");
       }
-      if (localStorage.getItem("disableAnimations") !== "false") {
+      // TomGPT default: fluid animations ON; only disable when explicitly set
+      if (localStorage.getItem("disableAnimations") === "true") {
         document.body.classList.add("no-animations");
       }
     </script>
@@ -365,7 +366,7 @@
                   </div>
                   <div class="field">
                       <span class="label">关闭动画</span>
-                      <input type="checkbox" id="disableAnimations" checked />
+                      <input type="checkbox" id="disableAnimations" />
                       <label for="disableAnimations" class="toogle" title="关闭动画让界面更干净"></label>
                   </div>
                   <div class="field">
@@ -625,6 +626,7 @@ Render audio URLs as HTML: &lt;audio controls src=&quot;http://example/audio.mp3
                           style="white-space: pre-wrap;resize: none;"
                           autocomplete="off"
                         ></textarea>
+                        <span id="tomgpt-composer-status" class="sr-only" role="status" aria-live="polite"></span>
 
                         <label class="file-label image-label" aria-label="USB device icon for uploads">
                             <i class="fa-brands fa-usb" aria-hidden="true"></i>

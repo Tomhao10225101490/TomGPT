@@ -153,7 +153,7 @@ def get_provider_method(provider: type) -> Optional[callable]:
     if hasattr(provider, "create_async"):
 
         def wrapper(*args, **kwargs):
-            yield asyncio.run(provider.create_async(*args, **kwargs))
+            yield from to_sync_generator(provider.create_async(*args, **kwargs))
 
         return wrapper
     raise NotImplementedError(f"{provider.__name__} does not implement a create method")
