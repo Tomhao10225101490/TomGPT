@@ -1,0 +1,1259 @@
+@import url("https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap");
+
+/* —— TomGPT × ChatGPT official layout —— */
+body.tomgpt {
+    --font-1: "Source Sans 3", "Noto Sans SC", ui-sans-serif, sans-serif;
+    --colour-1: #0d0d0d;
+    --colour-2: #8e8e8e;
+    --colour-3: #ececec;
+    --colour-4: #f4f4f4;
+    --colour-5: #2f2f2f;
+    --colour-6: #424242;
+
+    --accent: #10a37f;
+    --accent-hover: #1a7f64;
+    --accent-glow: rgba(16, 163, 127, 0.18);
+    --blur-bg: #212121;
+    --blur-border: rgba(255, 255, 255, 0.1);
+    --user-input: #ececec;
+    --conversations: #ececec;
+    --conversations-hover: rgba(255, 255, 255, 0.08);
+    --background: #212121;
+    --sidebar-bg: #171717;
+    --input-bg: #2f2f2f;
+    --composer-bg: #303030;
+    --user-msg-bg: #2f2f2f;
+    --user-msg-border: transparent;
+    --msg-max: 48rem;
+    --sidebar-width: 260px;
+    --border-radius-1: 12px;
+    --border-radius-2: 24px;
+    --section-gap: 12px;
+    --inner-gap: 10px;
+    --transition-speed: 0.15s;
+    --scrollbar: transparent;
+    --scrollbar-thumb: #555;
+
+    background: var(--background);
+    color: var(--colour-3);
+    font-family: var(--font-1);
+    letter-spacing: 0.01em;
+}
+
+/* Light mode — ChatGPT white */
+body.tomgpt.white {
+    --colour-1: #ffffff;
+    --colour-2: #6b6b6b;
+    --colour-3: #0d0d0d;
+    --colour-4: #f4f4f4;
+    --colour-5: #e5e5e5;
+    --colour-6: #d9d9d9;
+    --accent: #10a37f;
+    --accent-hover: #1a7f64;
+    --accent-glow: rgba(16, 163, 127, 0.14);
+    --blur-bg: #ffffff;
+    --blur-border: rgba(0, 0, 0, 0.1);
+    --user-input: #0d0d0d;
+    --conversations: #0d0d0d;
+    --conversations-hover: rgba(0, 0, 0, 0.05);
+    --background: #ffffff;
+    --sidebar-bg: #f9f9f9;
+    --input-bg: #f4f4f4;
+    --composer-bg: #f4f4f4;
+    --user-msg-bg: #f4f4f4;
+    --user-msg-border: transparent;
+    --scrollbar: transparent;
+    --scrollbar-thumb: #c5c5c5;
+    --button-hover: #ececec;
+    background: var(--background);
+    color: var(--colour-3);
+}
+
+body.tomgpt.white a:link,
+body.tomgpt.white a:visited {
+    color: var(--accent);
+}
+
+/* Kill decorative noise */
+body.tomgpt .gradient,
+body.tomgpt.liquid .gradient {
+    display: none !important;
+}
+
+body.tomgpt.liquid,
+body.tomgpt.liquid:not(.white) {
+    background: var(--background) !important;
+    animation: none !important;
+}
+
+body.tomgpt .box,
+body.tomgpt.liquid .box,
+body.tomgpt.liquid .sidebar,
+body.tomgpt.liquid .chat-footer,
+body.tomgpt.liquid .chat-top-panel,
+body.tomgpt.liquid .message,
+body.tomgpt.liquid .chat-buttons button {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+}
+
+body.tomgpt .container {
+    background: var(--background);
+}
+
+/* ========== Sidebar ========== */
+body.tomgpt .sidebar {
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    background: var(--sidebar-bg) !important;
+    border-right: 1px solid transparent;
+    color: var(--colour-3);
+}
+
+body.tomgpt .sidebar-container {
+    padding: 12px;
+    gap: 8px;
+}
+
+body.tomgpt .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 4px 10px;
+}
+
+body.tomgpt .sidebar-logo,
+body.tomgpt .sidebar-header .sidebar-logo,
+body.tomgpt h1.sidebar-logo {
+    font-family: var(--font-1);
+    font-weight: 650;
+    font-size: 1.05rem;
+    letter-spacing: -0.03em;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+    -webkit-text-fill-color: #ececec !important;
+    color: #ececec !important;
+}
+
+body.tomgpt.white .sidebar-logo,
+body.tomgpt.white h1.sidebar-logo {
+    -webkit-text-fill-color: #0d0d0d !important;
+    color: #0d0d0d !important;
+}
+
+body.tomgpt .user-tier-info,
+body.tomgpt #cake-credits-text,
+body.tomgpt .settings-tab[data-tab="cloudsync"],
+body.tomgpt .sidebar .bottom_buttons .info,
+body.tomgpt .sidebar .new_convo[onclick*="true"],
+body.tomgpt .file-label.image-label,
+body.tomgpt .input-area > .code,
+body.tomgpt #addButton,
+body.tomgpt .slide-header,
+body.tomgpt #chatPrompt,
+body.tomgpt .chat-toolbar .hide-input,
+body.tomgpt .chat-toolbar .regenerate,
+body.tomgpt .media-select {
+    display: none !important;
+}
+
+/* Keep base regenerate-hidden behavior for stop/toolbar only — do NOT blanket-hide .regenerate (messages use that class) */
+body.tomgpt .chat-toolbar .regenerate-hidden,
+body.tomgpt .stop_generating-hidden {
+    display: none !important;
+}
+
+body.tomgpt .new_convo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--blur-border);
+    background: transparent;
+    border-radius: 999px;
+    color: var(--colour-3);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+body.tomgpt .new_convo:hover {
+    background: var(--conversations-hover);
+}
+
+body.tomgpt .conversations {
+    margin-top: 8px;
+    gap: 2px;
+}
+
+body.tomgpt .conversations .convo {
+    border-radius: 10px;
+    border: none;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: var(--colour-3);
+}
+
+body.tomgpt .conversations .convo:hover,
+body.tomgpt .conversations .convo.active {
+    background: var(--conversations-hover);
+}
+
+body.tomgpt .bottom_buttons button {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+}
+
+body.tomgpt .bottom_buttons button:hover {
+    background: var(--conversations-hover);
+}
+
+/* ========== Main chat ========== */
+body.tomgpt .chat-container {
+    position: relative;
+    background: var(--background);
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+body.tomgpt .chat-body {
+    flex: 1;
+    overflow-y: auto;
+}
+
+body.tomgpt .chat-top-panel {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    justify-content: center;
+    min-height: 52px;
+    padding: 8px 16px;
+}
+
+body.tomgpt .chat-top-panel .convo-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--colour-3);
+    letter-spacing: -0.01em;
+}
+
+body.tomgpt .chat-body {
+    max-width: var(--msg-max);
+    margin: 0 auto;
+    width: 100%;
+    padding: 12px 16px 24px;
+}
+
+/* Empty / welcome — ChatGPT centered hero */
+body.tomgpt .message:has(.welcome-message),
+body.tomgpt .message.tomgpt-empty {
+    flex-direction: column !important;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: min(52vh, 420px);
+    padding: 48px 16px 24px;
+    gap: 12px;
+}
+
+body.tomgpt .message:has(.welcome-message) .assistant,
+body.tomgpt .message.tomgpt-empty .assistant {
+    display: none !important;
+}
+
+body.tomgpt .message:has(.welcome-message) .content,
+body.tomgpt .message.tomgpt-empty .content {
+    background: transparent !important;
+    border: none !important;
+    max-width: 36rem;
+    width: 100%;
+}
+
+body.tomgpt .welcome-brand {
+    font-size: clamp(1.75rem, 4vw, 2.25rem);
+    font-weight: 650;
+    letter-spacing: -0.04em;
+    color: var(--colour-3);
+    margin: 0 0 8px;
+}
+
+body.tomgpt .welcome-message {
+    font-size: 1.35rem;
+    font-weight: 500;
+    color: var(--colour-3);
+    margin: 0;
+}
+
+/* Messages */
+body.tomgpt .message {
+    display: flex;
+    gap: 14px;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    padding: 18px 0;
+    max-width: 100%;
+}
+
+body.tomgpt .message .user,
+body.tomgpt .message .assistant {
+    width: 32px;
+    min-width: 32px;
+}
+
+body.tomgpt .message .user img,
+body.tomgpt .message .assistant img {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    border: none;
+    box-shadow: none;
+}
+
+body.tomgpt .message .user:after,
+body.tomgpt .message .assistant:after {
+    display: none !important;
+}
+
+body.tomgpt .message .content {
+    flex: 1;
+    min-width: 0;
+    border-radius: 0;
+    background: transparent;
+    border: none;
+    padding: 2px 0;
+}
+
+body.tomgpt .message .content_inner {
+    font-size: 16px;
+    line-height: 1.7;
+    color: var(--colour-3);
+}
+
+body.tomgpt .message:has(> .user) .content {
+    background: var(--user-msg-bg);
+    border-radius: 22px;
+    padding: 10px 16px;
+    max-width: min(100%, 36rem);
+    margin-left: auto;
+}
+
+body.tomgpt .message:has(> .user) {
+    flex-direction: row-reverse;
+}
+
+body.tomgpt .message .count {
+    color: var(--colour-2);
+    font-size: 12px;
+    opacity: 0.75;
+    margin-top: 6px;
+}
+
+body.tomgpt .message .provider {
+    font-size: 12px;
+    color: var(--colour-2);
+    font-weight: 600;
+}
+
+/* Suggestions — ChatGPT starter cards */
+body.tomgpt .suggestions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    max-width: var(--msg-max);
+    margin: 8px auto 0;
+    padding: 0 4px 24px;
+    width: 100%;
+}
+
+body.tomgpt .suggestion {
+    text-align: left;
+    border: 1px solid var(--blur-border);
+    background: transparent;
+    border-radius: 14px;
+    padding: 14px 16px;
+    color: var(--colour-3);
+    font-size: 14px;
+    line-height: 1.4;
+    min-height: 64px;
+}
+
+body.tomgpt .suggestion:hover {
+    background: var(--conversations-hover);
+}
+
+body.tomgpt .suggestion i {
+    display: none;
+}
+
+@media (max-width: 640px) {
+    body.tomgpt .suggestions {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ========== Footer / composer ========== */
+body.tomgpt .chat-footer {
+    position: relative;
+    background: linear-gradient(to top, var(--background) 72%, rgba(33, 33, 33, 0));
+    border: none;
+    padding: 8px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 5;
+}
+
+body.tomgpt.white .chat-footer {
+    background: linear-gradient(to top, #fff 72%, rgba(255, 255, 255, 0));
+}
+
+body.tomgpt .chat-toolbar {
+    width: min(100%, var(--msg-max));
+    justify-content: center;
+    min-height: 0;
+    margin-bottom: 6px;
+}
+
+body.tomgpt .chat-toolbar #input-count {
+    display: none;
+}
+
+/* Stop generating — ChatGPT-style floating pill above composer */
+body.tomgpt .stop_generating {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+    transform: none !important;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 8px;
+    z-index: 6;
+}
+
+body.tomgpt .stop_generating button {
+    border: 1px solid var(--blur-border);
+    background: var(--background);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 13px;
+    color: var(--colour-3);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+}
+
+/* Message action bar (copy / regenerate) — ChatGPT style */
+body.tomgpt .message .count {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+body.tomgpt .message .message-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 0;
+}
+
+body.tomgpt .message button.regenerate_button,
+body.tomgpt .message button.continue_button,
+body.tomgpt .message button.copy_button,
+body.tomgpt .message .count > button.regenerate_button,
+body.tomgpt .message .count > button.continue_button {
+    position: static !important;
+    height: 32px !important;
+    min-width: 32px;
+    padding: 0 10px !important;
+    border: none !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    color: var(--colour-2) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    gap: 6px !important;
+    font-size: 13px;
+}
+
+body.tomgpt .message button.regenerate_button span,
+body.tomgpt .message button.continue_button span {
+    display: inline !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+}
+
+body.tomgpt .message button.regenerate_button:hover,
+body.tomgpt .message button.continue_button:hover {
+    background: var(--conversations-hover) !important;
+    color: var(--colour-3) !important;
+}
+
+body.tomgpt .message .options_button {
+    opacity: 0.55;
+}
+
+body.tomgpt .message:hover .options_button,
+body.tomgpt .message:focus-within .options_button {
+    opacity: 1;
+}
+
+body.tomgpt .user-input {
+    width: min(100%, var(--msg-max));
+}
+
+body.tomgpt .input-area {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    grid-template-areas:
+        "pending pending pending pending"
+        "attach input mic send";
+    align-items: end;
+    column-gap: 4px;
+    row-gap: 4px;
+    position: relative;
+    background: var(--composer-bg);
+    border: 1px solid var(--blur-border);
+    border-radius: 28px;
+    padding: 10px 10px 10px 10px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.02), 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+body.tomgpt.white .input-area {
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+body.tomgpt .pending-attachments {
+    grid-area: pending;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    padding: 2px 4px 4px;
+}
+
+body.tomgpt .pending-attachments[hidden] {
+    display: none !important;
+}
+
+body.tomgpt .pending-attachment {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--blur-border);
+    border-radius: 14px;
+    background: var(--background);
+    color: var(--colour-3);
+    font-size: 13px;
+    line-height: 1.3;
+    position: relative;
+}
+
+body.tomgpt .pending-attachment.is-image {
+    padding: 0;
+    width: 72px;
+    height: 72px;
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+body.tomgpt .pending-attachment.is-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+body.tomgpt .pending-attachment.is-image .pending-attachment-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+}
+
+body.tomgpt .pending-attachment-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: min(280px, 70vw);
+    padding: 0 2px;
+}
+
+body.tomgpt .pending-attachment-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--colour-2);
+    cursor: pointer;
+}
+
+body.tomgpt .pending-attachment-remove:hover {
+    background: var(--conversations-hover);
+    color: var(--colour-3);
+}
+
+body.tomgpt #userInput,
+body.tomgpt #userInput.box,
+body.tomgpt .input-area .box {
+    grid-area: input;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 24px !important;
+    max-height: 200px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 8px 6px !important;
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+    color: var(--colour-3);
+    resize: none;
+    flex: unset !important;
+}
+
+body.tomgpt #userInput.box:focus,
+body.tomgpt .input-area .box:focus-within,
+body.tomgpt .input-area:focus-within {
+    border-color: var(--blur-border);
+    box-shadow: none;
+    outline: none;
+}
+
+body.tomgpt #userInput::placeholder {
+    color: var(--colour-2);
+}
+
+body.tomgpt .file-label,
+body.tomgpt .micro-label {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    color: var(--colour-2) !important;
+    cursor: pointer;
+    margin: 0;
+    padding: 0;
+}
+
+body.tomgpt .input-area > .code {
+    display: none !important;
+}
+
+body.tomgpt .file-label[for="file"] {
+    grid-area: attach;
+}
+
+body.tomgpt .micro-label {
+    grid-area: mic;
+}
+
+body.tomgpt .file-label:hover,
+body.tomgpt .micro-label:hover {
+    background: var(--conversations-hover);
+    color: var(--colour-3);
+}
+
+body.tomgpt .file-label input {
+    display: none !important;
+}
+
+body.tomgpt .send-buttons {
+    grid-area: send;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    margin: 0;
+}
+
+body.tomgpt .chat-footer .send-buttons button,
+body.tomgpt #sendButton {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 999px !important;
+    border: none !important;
+    background: #fff !important;
+    color: #0d0d0d !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+    gap: 0;
+    margin: 0 !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+body.tomgpt.white .chat-footer .send-buttons button,
+body.tomgpt.white #sendButton {
+    background: #0d0d0d !important;
+    color: #fff !important;
+}
+
+body.tomgpt .chat-footer .send-buttons button:hover,
+body.tomgpt #sendButton:hover {
+    opacity: 0.9;
+    background: #fff !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+body.tomgpt.white .chat-footer .send-buttons button:hover,
+body.tomgpt.white #sendButton:hover {
+    background: #0d0d0d !important;
+}
+
+body.tomgpt #sendButton span {
+    display: none !important;
+}
+
+body.tomgpt #sendButton i {
+    font-size: 14px;
+}
+
+/* Model / provider strip — quiet like ChatGPT model picker */
+body.tomgpt .chat-buttons {
+    width: min(100%, var(--msg-max));
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 0 2px;
+    opacity: 0.85;
+}
+
+body.tomgpt .chat-buttons .field {
+    margin: 0;
+}
+
+body.tomgpt .chat-buttons select,
+body.tomgpt .chat-buttons button {
+    background: transparent;
+    border: none;
+    border-radius: 999px;
+    color: var(--colour-2);
+    font-size: 13px;
+    padding: 6px 10px;
+}
+
+body.tomgpt .chat-buttons select:hover,
+body.tomgpt .chat-buttons button:hover {
+    background: var(--conversations-hover);
+    color: var(--colour-3);
+}
+
+body.tomgpt #model_edit,
+body.tomgpt #pin,
+body.tomgpt #search {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+}
+
+/* Settings — wide adaptive column, same width on every tab */
+body.tomgpt .settings {
+    background: var(--background);
+}
+
+body.tomgpt .settings .paper {
+    width: min(1080px, calc(100% - 48px));
+    max-width: none;
+    margin: 0 auto;
+    padding: 0 0 48px;
+    box-sizing: border-box;
+}
+
+body.tomgpt .settings-top-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 20px 0 8px;
+    border-bottom: none;
+    background: transparent;
+}
+
+body.tomgpt .settings-top-bar .settings-title,
+body.tomgpt .settings-top-bar h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--colour-3);
+    letter-spacing: -0.02em;
+}
+
+body.tomgpt .settings-back-button {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--colour-3);
+    cursor: pointer;
+}
+
+body.tomgpt .settings-back-button:hover {
+    background: var(--conversations-hover);
+}
+
+body.tomgpt .settings-tabs {
+    display: flex;
+    width: 100%;
+    gap: 0;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--blur-border);
+    margin: 8px 0 24px;
+    padding: 0;
+    background: transparent;
+    scrollbar-width: none;
+}
+
+body.tomgpt .settings-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+body.tomgpt .settings-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: var(--colour-2) !important;
+    padding: 12px 8px !important;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: none !important;
+}
+
+body.tomgpt .settings-tab:hover {
+    color: var(--colour-3) !important;
+    background: transparent !important;
+}
+
+body.tomgpt .settings-tab.active {
+    color: var(--colour-3) !important;
+    border-bottom-color: var(--accent) !important;
+    background: transparent !important;
+}
+
+body.tomgpt .settings-tab i {
+    font-size: 13px;
+    opacity: 0.85;
+}
+
+body.tomgpt .settings-content {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+}
+
+body.tomgpt .settings-content > form {
+    width: 100%;
+}
+
+body.tomgpt .settings-tab-content {
+    display: none;
+    width: 100%;
+}
+
+body.tomgpt .settings-tab-content.active {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+body.tomgpt .settings-section-title {
+    margin: 20px 0 10px;
+    padding: 0 2px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--colour-2);
+    letter-spacing: 0.01em;
+}
+
+body.tomgpt .settings-section-title:first-child {
+    margin-top: 0;
+}
+
+body.tomgpt .settings-group {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--blur-border);
+    border-radius: 12px;
+    background: var(--sidebar-bg);
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+body.tomgpt .settings-group > .field {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 52px;
+    margin: 0 !important;
+    padding: 14px 18px !important;
+    border: none !important;
+    border-bottom: 1px solid var(--blur-border) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    box-sizing: border-box;
+}
+
+body.tomgpt .settings-group > .field:last-child {
+    border-bottom: none !important;
+}
+
+body.tomgpt .settings-group > .field .label,
+body.tomgpt .settings-group > .field > label.label {
+    flex: 1;
+    margin: 0 !important;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--colour-3);
+}
+
+body.tomgpt .settings-group.settings-group-stack > .field {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+body.tomgpt .settings-group > .field.box,
+body.tomgpt .settings-group > .field.row {
+    flex-wrap: wrap;
+}
+
+body.tomgpt .settings-group input[type="text"],
+body.tomgpt .settings-group input[type="number"],
+body.tomgpt .settings-group input[type="url"],
+body.tomgpt .settings-group select,
+body.tomgpt .settings-group textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin-top: 8px;
+    padding: 10px 12px !important;
+    border: 1px solid var(--blur-border) !important;
+    border-radius: 10px !important;
+    background: var(--input-bg) !important;
+    color: var(--colour-3) !important;
+    font-size: 14px;
+}
+
+body.tomgpt .settings-group textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+body.tomgpt .settings-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--colour-2);
+    opacity: 0.85;
+}
+
+body.tomgpt .settings .bottom_buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    margin-top: 8px;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+@media screen and (max-width: 720px) {
+    body.tomgpt .settings .paper {
+        width: calc(100% - 24px);
+    }
+
+    body.tomgpt .settings-tab {
+        flex: 0 0 auto;
+        justify-content: center;
+        padding: 12px 12px !important;
+    }
+
+    body.tomgpt .settings-tab span {
+        display: none;
+    }
+}
+
+body.tomgpt .settings .bottom_buttons button,
+body.tomgpt .settings-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+    margin: 0 !important;
+    padding: 12px 16px !important;
+    border: 1px solid var(--blur-border) !important;
+    border-radius: 12px !important;
+    background: var(--sidebar-bg) !important;
+    color: var(--colour-3) !important;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: none !important;
+    cursor: pointer;
+}
+
+body.tomgpt .settings .bottom_buttons button:hover,
+body.tomgpt .settings-btn:hover {
+    background: var(--conversations-hover) !important;
+}
+
+body.tomgpt .settings-btn-danger,
+body.tomgpt .settings .bottom_buttons button.settings-btn-danger {
+    color: #ef4444 !important;
+}
+
+body.tomgpt .tomgpt-theme-field {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+body.tomgpt .tomgpt-theme-switch {
+    display: inline-flex;
+    gap: 0;
+    border: 1px solid var(--blur-border);
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--input-bg);
+}
+
+body.tomgpt .tomgpt-theme-btn {
+    border: none;
+    background: transparent;
+    color: var(--colour-2);
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background var(--transition-speed), color var(--transition-speed);
+}
+
+body.tomgpt .tomgpt-theme-btn.active {
+    background: var(--accent);
+    color: #fff;
+}
+
+body.tomgpt .tomgpt-theme-btn:hover:not(.active) {
+    background: var(--conversations-hover);
+    color: var(--colour-3);
+}
+
+body.tomgpt .field input.toogle + label.toogle,
+body.tomgpt label.toogle {
+    accent-color: var(--accent);
+    flex-shrink: 0;
+}
+
+body.tomgpt.white .settings-group {
+    background: #fff;
+}
+
+body.tomgpt.white .settings .bottom_buttons button,
+body.tomgpt.white .settings-btn {
+    background: #fff !important;
+}
+
+body.tomgpt .media-select {
+    background: var(--composer-bg);
+    border: 1px solid var(--blur-border);
+    border-radius: 16px;
+}
+
+/* —— Voice listening bar (ChatGPT-style) —— */
+body.tomgpt .voice-listening-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: min(100%, var(--msg-max));
+    margin: 0 auto 10px;
+    padding: 10px 14px;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    border-radius: 16px;
+    background: color-mix(in srgb, #ef4444 12%, var(--composer-bg));
+    color: var(--colour-3);
+}
+
+body.tomgpt .voice-listening-bar[hidden] {
+    display: none !important;
+}
+
+body.tomgpt .voice-wave {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 22px;
+}
+
+body.tomgpt .voice-wave span {
+    display: block;
+    width: 3px;
+    height: 8px;
+    border-radius: 999px;
+    background: #ef4444;
+    animation: tomgpt-voice-wave 1s ease-in-out infinite;
+}
+
+body.tomgpt .voice-wave span:nth-child(2) { animation-delay: 0.1s; height: 14px; }
+body.tomgpt .voice-wave span:nth-child(3) { animation-delay: 0.2s; height: 20px; }
+body.tomgpt .voice-wave span:nth-child(4) { animation-delay: 0.3s; height: 12px; }
+body.tomgpt .voice-wave span:nth-child(5) { animation-delay: 0.4s; height: 16px; }
+
+@keyframes tomgpt-voice-wave {
+    0%, 100% { transform: scaleY(0.45); opacity: 0.65; }
+    50% { transform: scaleY(1); opacity: 1; }
+}
+
+body.tomgpt .voice-listening-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+body.tomgpt .voice-listening-status {
+    color: #fca5a5;
+    font-weight: 600;
+}
+
+body.tomgpt .voice-listening-transcript {
+    color: var(--colour-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.tomgpt .voice-listening-stop {
+    border: 1px solid var(--blur-border);
+    background: transparent;
+    color: var(--colour-3);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+body.tomgpt .voice-listening-stop:hover {
+    background: var(--conversations-hover);
+}
+
+body.tomgpt .micro-label.recognition {
+    color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.15);
+    animation: tomgpt-mic-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes tomgpt-mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35); }
+    50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+
+/* —— Word export chip / button —— */
+body.tomgpt .message button.export_docx_button {
+    position: static !important;
+    height: 32px !important;
+    min-width: 32px;
+    padding: 0 10px !important;
+    border: none !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    color: var(--colour-2) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    gap: 6px !important;
+    font-size: 13px;
+}
+
+body.tomgpt .message button.export_docx_button span {
+    display: inline !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+}
+
+body.tomgpt .message button.export_docx_button:hover {
+    background: var(--conversations-hover) !important;
+    color: var(--colour-3) !important;
+}
+
+body.tomgpt .docx-download-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: var(--msg-max);
+    margin: 8px auto 0;
+    padding: 12px 14px;
+    border: 1px solid var(--blur-border);
+    border-radius: 14px;
+    background: var(--composer-bg);
+    color: var(--colour-3);
+    font-size: 14px;
+}
+
+body.tomgpt .docx-download-chip button {
+    margin-left: auto;
+    border: none;
+    border-radius: 999px;
+    background: #fff;
+    color: #0d0d0d;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+body.tomgpt.white .docx-download-chip button {
+    background: #0d0d0d;
+    color: #fff;
+}
+
+/* Mobile */
+@media (max-width: 990px) {
+    body.tomgpt .sidebar {
+        background: var(--sidebar-bg) !important;
+    }
+
+    body.tomgpt .chat-footer {
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+}

@@ -1,0 +1,910 @@
+from __future__ import annotations
+
+import os
+import re
+import json
+from ..typing import AsyncResult, Messages, MediaListType, Union
+from ..errors import ModelNotFoundError
+from ..image import is_data_an_audio
+from ..providers.retry_provider import RotatedProvider
+from ..providers.config_provider import RouterConfig, ConfigModelProvider
+from ..client.factory import AbstractClientFactory
+from ..Provider import __getattr__
+from .base_provider import (
+    AsyncGeneratorProvider,
+    ProviderModelMixin,
+    get_async_provider_method,
+)
+from .. import Provider
+from .. import models
+from .. import debug
+from .any_model_map import (
+    audio_models,
+    image_models,
+    vision_models,
+    video_models,
+    model_map,
+    models_count,
+    parents,
+    model_aliases,
+)
+
+# Add providers to existing models on map
+PROVIDERS_LIST_2 = [
+    "OpenaiChat",
+    "Copilot",
+    "CopilotAccount",
+    "CopilotApp",
+    "Pollinations",
+    "Perplexity",
+    "Gemini",
+    "Grok",
+    "Qwen",
+    "GLM",
+    "OpenRouterFree",
+    "LMArena",
+    "Puter",
+    "HuggingFaceMedia",
+]
+
+# Add all models to the model map
+PROVIDERS_LIST_3 = [
+    "DeepInfra",
+    "HuggingFace",
+    "HuggingSpace",
+]
+
+LABELS = {
+    "default": "Default",
+    "custom": "Custom Routes",
+    "openai": "OpenAI: ChatGPT",
+    "llama": "Meta: LLaMA",
+    "deepseek": "DeepSeek",
+    "qwen": "Alibaba: Qwen",
+    "google": "Google: Gemini / Gemma",
+    "grok": "xAI: Grok",
+    "claude": "Anthropic: Claude",
+    "command": "Cohere: Command",
+    "phi": "Microsoft: Phi / WizardLM",
+    "mistral": "Mistral",
+    "Pollinations": "Pollinations AI",
+    "voices": "Voices",
+    "perplexity": "Perplexity Labs",
+    "openrouter": "OpenRouter",
+    "glm": "GLM",
+    "tulu": "Tulu",
+    "reka": "Reka",
+    "hermes": "Hermes",
+    "video": "Video Generation",
+    "image": "Image Generation",
+    "other": "Other Models",
+}
+
+
+class AnyModelProviderMixin(ProviderModelMixin):
+    """Mixin to provide model-related methods for providers."""
+
+    default_model = "default"
+    audio_models = audio_models
+    image_models = image_models
+    vision_models = vision_models
+    video_models = video_models
+    models_count = models_count
+    models = list(model_map.keys())
+    model_map: dict[str, dict[str, str]] = model_map
+    model_aliases: dict[str, str] = model_aliases
+
+    @classmethod
+    def extend_ignored(cls, ignored: list[str]) -> list[str]:
+        """Extend the ignored list with parent providers."""
+        for ignored_provider in ignored:
+            if ignored_provider in parents and parents[ignored_provider] not in ignored:
+                ignored.extend(parents[ignored_provider])
+        return ignored
+
+    @classmethod
+    def get_models(cls, ignored: list[str] = [], **kwargs) -> list[str]:
+        if not cls.models:
+            cls.update_model_map()
+        if not ignored:
+            return cls.models
+        ignored = cls.extend_ignored(ignored)
+        filtered = []
+        for model, providers in cls.model_map.items():
+            for provider in providers.keys():
+                if provider not in ignored:
+                    filtered.append(model)
+                    break
+        return filtered
+
+    @classmethod
+    def update_model_map(cls):
+        cls.create_model_map()
+        file = os.path.join(os.path.dirname(__file__), "any_model_map.py")
+        with open(file, "w", encoding="utf-8") as f:
+            for key in [
+                "audio_models",
+                "image_models",
+                "vision_models",
+                "video_models",
+                "model_map",
+                "models_count",
+                "parents",
+                "model_aliases",
+            ]:
+                value = getattr(cls, key)
+                f.write(
+                    f"{key} = {json.dumps(value, indent=2) if isinstance(value, dict) else repr(value)}\n"
+                )
+
+    @classmethod
+    def create_model_map(cls):
+        cls.audio_models = []
+        cls.image_models = []
+        cls.vision_models = []
+        cls.video_models = []
+
+        from ..Provider import __getattr__
+
+        def resolve_provider(p):
+            if isinstance(p, str):
+                try:
+                    return __getattr__(p)
+                except AttributeError:
+                    return None
+            return p
+
+        # Get models from the models registry
+        cls.model_map = {
+            "default": {
+                provider.__name__: ""
+                for provider in models.default.best_provider.get_providers()
+            },
+        }
+        cls.model_map.update(
+            {
+                name: {
+                    p.__name__: model.get_long_name()
+                    for p in (resolve_provider(provider) for provider in providers)
+                    if p and getattr(p, "working", False)
+                }
+                for name, (model, providers) in models.__models__.items()
+            }
+        )
+        for name, (model, providers) in models.__models__.items():
+            if isinstance(model, models.ImageModel):
+                cls.image_models.append(name)
+
+        for provider in [
+            p
+            for p in (resolve_provider(name) for name in PROVIDERS_LIST_3)
+            if p is not None
+        ]:
+            if not provider.working:
+                continue
+            try:
+                new_models = provider.get_models()
+            except Exception as e:
+                debug.error(
+                    f"Error getting models for provider {provider.__name__}:", e
+                )
+                continue
+            if provider == __getattr__("HuggingFaceMedia"):
+                new_models = provider.video_models
+            model_map = {}
+            for model in new_models:
+                clean_value = clean_name(model)
+                if clean_value not in model_map:
+                    model_map[clean_value] = model
+            if provider.model_aliases is not None:
+                model_map.update(provider.model_aliases)
+            for alias, model in model_map.items():
+                if alias not in cls.model_map:
+                    cls.model_map[alias] = {}
+                cls.model_map[alias].update({provider.__name__: model})
+
+            # Update special model lists with both original and cleaned names
+            if hasattr(provider, "image_models"):
+                cls.image_models.extend(provider.image_models)
+                cls.image_models.extend(
+                    [clean_name(model) for model in provider.image_models]
+                )
+            if hasattr(provider, "vision_models"):
+                cls.vision_models.extend(provider.vision_models)
+                cls.vision_models.extend(
+                    [clean_name(model) for model in provider.vision_models]
+                )
+            if hasattr(provider, "video_models"):
+                cls.video_models.extend(provider.video_models)
+                cls.video_models.extend(
+                    [clean_name(model) for model in provider.video_models]
+                )
+
+        for provider in Provider.__providers__:
+            try:
+                if provider == __getattr__("Perplexity"):
+                    for model in provider.fallback_models:
+                        if model not in cls.model_map:
+                            cls.model_map[model] = {}
+                        cls.model_map[model].update({provider.__name__: model})
+                elif (
+                    provider.working
+                    and hasattr(provider, "get_models")
+                    and provider
+                    not in [
+                        AnyProvider,
+                        __getattr__("Custom"),
+                        __getattr__("PollinationsImage"),
+                        __getattr__("OpenaiAccount"),
+                    ]
+                ):
+                    for model in provider.get_models():
+                        clean = clean_name(model)
+                        if clean in cls.model_map:
+                            cls.model_map[clean].update({provider.__name__: model})
+                    if provider.model_aliases is not None:
+                        for alias, model in provider.model_aliases.items():
+                            if alias in cls.model_map:
+                                cls.model_map[alias].update({provider.__name__: model})
+                    if provider == __getattr__("GeminiPro"):
+                        for model in cls.model_map.keys():
+                            if "gemini" in model or "gemma" in model:
+                                cls.model_map[model].update({provider.__name__: model})
+            except Exception as e:
+                debug.error(
+                    f"Error getting models for provider {provider.__name__}:", e
+                )
+                continue
+
+        # Process audio providers
+        for provider in [__getattr__("Pollinations")]:
+            if provider.working:
+                cls.audio_models.extend(
+                    [
+                        model
+                        for model in provider.audio_models
+                        if model not in cls.audio_models
+                    ]
+                )
+
+        # Update model counts
+        for model, providers in cls.model_map.items():
+            if len(providers) > 1:
+                cls.models_count[model] = len(providers)
+
+        cls.video_models.append("video")
+        cls.model_map["video"] = {"Video": "video"}
+        cls.audio_models = [*cls.audio_models]
+
+        # Create a mapping of parent providers to their children
+        cls.parents = {}
+        for provider in Provider.__providers__:
+            if provider.working and provider.__name__ != provider.get_parent():
+                if provider.get_parent() not in cls.parents:
+                    cls.parents[provider.get_parent()] = [provider.__name__]
+                elif provider.__name__ not in cls.parents[provider.get_parent()]:
+                    cls.parents[provider.get_parent()].append(provider.__name__)
+
+        for model, providers in cls.model_map.items():
+            for provider, alias in providers.items():
+                if (
+                    alias != model
+                    and isinstance(alias, str)
+                    and alias not in cls.model_map
+                ):
+                    if cls.model_aliases is None:
+                        cls.model_aliases = {}
+                    cls.model_aliases[alias] = model
+
+    @classmethod
+    def get_grouped_models(cls, ignored: list[str] = []) -> dict[str, list[str]]:
+        unsorted_models = cls.get_models(ignored=ignored)
+        groups = {key: [] for key in LABELS.keys()}
+
+        # Always add default first
+        groups["default"].append("default")
+
+        groups["custom"] = list(RouterConfig.routes.keys())
+
+        for model in unsorted_models:
+            if model == "default":
+                continue  # Already added
+
+            added = False
+            # Check for models with prefix
+            start = model.split(":")[0]
+            if start in ("Pollinations", "openrouter"):
+                added = True
+            # Check for Mistral company models specifically
+            elif model.startswith("mistral") and not any(
+                x in model for x in ["dolphin", "nous", "openhermes"]
+            ):
+                groups["mistral"].append(model)
+                added = True
+            elif (
+                model.startswith(
+                    ("pixtral-", "ministral-", "codestral", "devstral", "magistral")
+                )
+                or "mistral" in model
+                or "mixtral" in model
+            ):
+                groups["mistral"].append(model)
+                added = True
+            # Check for Qwen models
+            elif model.startswith(("qwen", "Qwen", "qwq", "qvq")):
+                groups["qwen"].append(model)
+                added = True
+            # Check for Microsoft Phi models
+            elif (
+                model.startswith(("phi-", "microsoft/")) or "wizardlm" in model.lower()
+            ):
+                groups["phi"].append(model)
+                added = True
+            # Check for Meta LLaMA models
+            elif model.startswith(("llama-", "meta-llama/", "llama2-", "llama3")):
+                groups["llama"].append(model)
+                added = True
+            elif model == "meta-ai" or model.startswith("codellama-"):
+                groups["llama"].append(model)
+                added = True
+            # Check for Google models
+            elif model.startswith(("gemini-", "gemma-", "google/", "bard-")):
+                groups["google"].append(model)
+                added = True
+            # Check for Cohere Command models
+            elif model.startswith(("command-", "CohereForAI/", "c4ai-command")):
+                groups["command"].append(model)
+                added = True
+            # Check for DeepSeek models
+            elif model.startswith(("deepseek-", "janus-")):
+                groups["deepseek"].append(model)
+                added = True
+            # Check for Perplexity models
+            elif model.startswith(("sonar", "sonar-", "pplx-")) or model == "r1-1776":
+                groups["perplexity"].append(model)
+                added = True
+            # Check for image models - UPDATED to include flux check
+            elif model in cls.image_models:
+                groups["image"].append(model)
+                added = True
+            # Check for OpenAI models
+            elif model.startswith(
+                ("gpt-", "chatgpt-", "o1", "o1", "o3", "o4")
+            ) or model in ("auto", "searchgpt"):
+                groups["openai"].append(model)
+                added = True
+            # Check for video models
+            elif model in cls.video_models:
+                groups["video"].append(model)
+                added = True
+            if not added:
+                for group in LABELS.keys():
+                    if model == group or group in model:
+                        groups[group].append(model)
+                        added = True
+                        break
+            # If not categorized, check for special cases then put in other
+            if not added:
+                groups["other"].append(model)
+        return [
+            {"group": LABELS[group], "models": names} for group, names in groups.items()
+        ]
+
+
+class AnyProvider(AsyncGeneratorProvider, AnyModelProviderMixin):
+    working = True
+    active_by_default = True
+    supports_native_tools = True
+
+    @classmethod
+    async def create_async_generator(
+        cls,
+        model: str,
+        messages: Messages,
+        stream: bool = True,
+        media: MediaListType = None,
+        ignored: list[str] = [],
+        api_key: Union[str, dict[str, str]] = None,
+        **kwargs,
+    ) -> AsyncResult:
+        def _messages_have_image(msgs) -> bool:
+            for message in msgs or []:
+                content = message.get("content") if isinstance(message, dict) else None
+                if not isinstance(content, list):
+                    continue
+                for part in content:
+                    if not isinstance(part, dict):
+                        continue
+                    if part.get("type") == "image_url" or part.get("image_url"):
+                        return True
+                    url = part.get("url")
+                    if isinstance(url, str) and (
+                        url.startswith("data:image")
+                        or "/media/" in url
+                        or url.startswith("blob:")
+                    ):
+                        return True
+            return False
+
+        def _last_user_text(msgs) -> str:
+            for message in reversed(msgs or []):
+                if not isinstance(message, dict) or message.get("role") != "user":
+                    continue
+                content = message.get("content")
+                if isinstance(content, str):
+                    return content
+                if isinstance(content, list):
+                    parts = []
+                    for part in content:
+                        if isinstance(part, str):
+                            parts.append(part)
+                        elif isinstance(part, dict) and part.get("type", "text") == "text":
+                            parts.append(str(part.get("text") or ""))
+                    return " ".join(parts).strip()
+            return ""
+
+        def _wants_image_generation(text: str) -> bool:
+            if not text:
+                return False
+            t = text.lower().strip()
+            is_recognize = bool(
+                re.search(
+                    r"识别|分析|看看|解释|identify|analy[sz]e|describe|"
+                    r"what('s| is).{0,20}(image|photo|picture)",
+                    t,
+                    re.I,
+                )
+            )
+            is_generate_verb = bool(
+                re.search(
+                    r"生成|画一|帮我画|文生图|出一张图|做一张图|generate|draw\s+|"
+                    r"create\s+|make\s+|dall-?e|stable\s*diffusion|"
+                    r"text[\s-]?to[\s-]?image|flux",
+                    t,
+                    re.I,
+                )
+            )
+            if is_recognize and not is_generate_verb:
+                return False
+            # Document / text deliverables — not image gen
+            if re.search(
+                r"word|docx|文档|文章|报告|纪要|论文|代码|总结|方案|游记|作文|小说",
+                t,
+                re.I,
+            ) and not re.search(r"图片|图像|照片|示意图|配图|海报|插画|图", t, re.I):
+                return False
+            if re.search(
+                r"生成.*(图片|图像|照片|示意图|配图|海报)|画一[张幅只面]|帮我画|文生图|"
+                r"出一张图|做一张图|生成一张|(给我|帮我)(生成|画).{0,16}(图片|图像|照片)|"
+                r"draw\s+(me\s+)?(an?\s+)?|generate\s+(an?\s+)?(image|picture|photo|illustration)|"
+                r"create\s+(an?\s+)?(image|picture|illustration)|"
+                r"make\s+(me\s+)?(an?\s+)?(image|picture|photo)|"
+                r"text[\s-]?to[\s-]?image|dall-?e|stable\s*diffusion",
+                t,
+                re.I,
+            ):
+                return True
+            # Visual subjects without saying「图片」— e.g.「帮我生成美国国旗」
+            if re.search(
+                r"(帮我|请)?(生成|画).{0,40}"
+                r"(国旗|旗帜|图标|logo|壁纸|头像|插画|漫画|表情包|banner|flag|"
+                r"风景|人物|角色|小猫|小狗|猫|狗)",
+                t,
+                re.I,
+            ):
+                return True
+            if re.search(
+                r"(generate|draw|create|make)\b.{0,40}\b"
+                r"(flag|logo|wallpaper|avatar|illustration|banner|cat|dog)\b",
+                t,
+                re.I,
+            ):
+                return True
+            # Short imperative:「(帮我/请)?生成/画…」
+            if re.search(
+                r"^(帮我|请)?(生成|画一?[张幅只面]?)[^，。！？\n]{1,40}$",
+                t,
+                re.I,
+            ):
+                return True
+            return False
+
+        def _flatten_messages_for_text_fallback(msgs):
+            """Collapse multimodal list content to plain text for chat-only backends."""
+            out = []
+            for message in msgs or []:
+                if not isinstance(message, dict):
+                    out.append(message)
+                    continue
+                content = message.get("content")
+                if not isinstance(content, list):
+                    out.append(message)
+                    continue
+                texts = []
+                for part in content:
+                    if isinstance(part, str):
+                        texts.append(part)
+                    elif isinstance(part, dict):
+                        if part.get("type", "text") == "text" and part.get("text"):
+                            texts.append(str(part.get("text")))
+                        elif part.get("type") == "image_url" or part.get("image_url"):
+                            texts.append("[image attached]")
+                flat = "\n".join(t for t in texts if t).strip() or "[image attached]"
+                out.append({**message, "content": flat})
+            return out
+
+        # Explicit image-generation asks → force a real image model (not chat hallucination)
+        force_image_gen = False
+        if (not model or model in ("", "default", cls.default_model)) and _wants_image_generation(
+            _last_user_text(messages)
+        ):
+            debug.log("AnyProvider: image-generation intent detected → model=flux")
+            model = "flux"
+            force_image_gen = True
+        elif model and (
+            model in (getattr(cls, "image_models", None) or [])
+            or model in image_models
+        ):
+            force_image_gen = True
+
+        providers = []
+        has_image = False
+        has_audio = False
+        if not model or model == cls.default_model:
+            model = ""
+            if not has_audio and media is not None:
+                for media_data, filename in media:
+                    if is_data_an_audio(media_data, filename):
+                        has_audio = True
+                        break
+                    has_image = True
+            # Images may already be embedded as data URIs in messages (TomGPT path)
+            if not has_image and not has_audio:
+                has_image = _messages_have_image(messages)
+            # Do not override provider selection just because tools are present.
+            # Tool calling is an API-level feature; routing should be based on model/media.
+            if "audio" in kwargs or "audio" in kwargs.get("modalities", []):
+                if kwargs.get("audio", {}).get("language") is None:
+                    providers = [
+                        __getattr__("PollinationsAudio"),
+                        __getattr__("OpenAIFM"),
+                        __getattr__("Gemini"),
+                    ]
+                else:
+                    providers = [
+                        __getattr__("PollinationsAudio"),
+                        __getattr__("OpenAIFM"),
+                        __getattr__("EdgeTTS"),
+                        __getattr__("gTTS"),
+                    ]
+            elif has_audio:
+                providers = [__getattr__("Pollinations"), __getattr__("MarkItDown")]
+            elif has_image:
+                providers = models.default_vision.best_provider.get_providers()
+            else:
+                providers = models.default.best_provider.get_providers()
+        elif model in RouterConfig.routes:
+            async for chunk in ConfigModelProvider(
+                RouterConfig.routes.get(model)
+            ).create_async_generator(
+                model, messages, stream=stream, media=media, api_key=api_key, **kwargs
+            ):
+                yield chunk
+            return
+        elif model in Provider.__map__:
+            provider = Provider.__map__[model]
+            if provider.working and provider.get_parent() not in ignored:
+                model = None
+                providers.append(provider)
+        elif model and ":" in model:
+            provider, submodel = model.split(":", maxsplit=1)
+            if hasattr(Provider, provider):
+                provider = getattr(Provider, provider)
+                method = get_async_provider_method(provider)
+                async for chunk in method(
+                    submodel,
+                    messages,
+                    stream=stream,
+                    media=media,
+                    api_key=api_key,
+                    **kwargs,
+                ):
+                    yield chunk
+                return
+        else:
+            if model not in cls.model_map and cls.model_aliases is not None:
+                if model in cls.model_aliases:
+                    model = cls.model_aliases[model]
+            if model in cls.model_map:
+                for provider, alias in cls.model_map[model].items():
+                    try:
+                        provider_cls = Provider.__map__[provider]
+                        if provider_cls.model_aliases is None:
+                            provider_cls.model_aliases = {}
+                        if model not in provider_cls.model_aliases:
+                            provider_cls.model_aliases[model] = alias
+                        providers.append(provider_cls)
+                    except KeyError:
+                        pass
+        if not providers:
+
+            def _safe_getattr(p):
+                try:
+                    return __getattr__(p)
+                except AttributeError:
+                    return None
+
+            for provider in [
+                _safe_getattr(p) for p in PROVIDERS_LIST_2 + PROVIDERS_LIST_3
+            ]:
+                if provider is None or not provider.working:
+                    continue
+                try:
+                    if model in provider.get_models():
+                        providers.append(provider)
+                    elif (
+                        provider.model_aliases is not None
+                        and model in provider.model_aliases
+                    ):
+                        providers.append(provider)
+                except Exception as e:
+                    debug.error(
+                        f"Error checking provider {provider.__name__} for model {model}:",
+                        e,
+                    )
+        providers = [
+            provider
+            for provider in providers
+            if provider.working and provider.get_parent() not in ignored
+        ]
+        providers = list(
+            {provider.__name__: provider for provider in providers}.values()
+        )
+
+        # TomGPT: avoid providers that open external browser windows (Turnstile/nodriver)
+        # so the chat UI never "jumps away" during auto failover.
+        def _opens_external_browser(p) -> bool:
+            if getattr(p, "use_nodriver", False):
+                return True
+            # Also deprioritize providers that often need paid/subscription without keys
+            return getattr(p, "__name__", "") in {
+                "DeepInfra",
+                "OpenaiChat",
+                "Gemini",
+                "HuggingChat",
+                "Pi",
+                "HailuoAI",
+                "MicrosoftDesigner",
+                "CopilotAccount",
+                "GoogleSearch",
+                "Ollama",
+            }
+
+        api_key_map = api_key if isinstance(api_key, dict) else None
+        quiet = []
+        for p in providers:
+            # Keep provider if user supplied an API key for it (no browser needed)
+            parent = p.get_parent()
+            keyed = False
+            if isinstance(api_key, str) and api_key:
+                keyed = True
+            elif api_key_map and (api_key_map.get(parent) or api_key_map.get(p.__name__)):
+                keyed = True
+            if keyed or not _opens_external_browser(p):
+                quiet.append(p)
+        if quiet:
+            providers = quiet
+
+        # Free-first + live-score + non-browser routing
+        has_api_key = bool(api_key) or bool(kwargs.get("api_key"))
+        if not has_api_key:
+            providers.sort(
+                key=lambda p: (
+                    bool(getattr(p, "needs_auth", False)),
+                    bool(_opens_external_browser(p)),
+                    -int(getattr(p, "live", 0) or 0),
+                )
+            )
+        else:
+            providers.sort(
+                key=lambda p: (
+                    bool(_opens_external_browser(p)),
+                    -int(getattr(p, "live", 0) or 0),
+                )
+            )
+
+        if len(providers) == 0:
+            provider: AsyncGeneratorProvider = AbstractClientFactory.create_provider(
+                None, "default"
+            )
+            async for chunk in provider.create_async_generator(
+                model, messages, stream=stream, media=media, api_key=api_key, **kwargs
+            ):
+                yield chunk
+            return
+            # raise ModelNotFoundError(
+            #     f"AnyProvider: Model {model} not found in any provider."
+            # )
+
+        debug.log(
+            f"AnyProvider: Using providers: {[provider.__name__ for provider in providers]} for model '{model}'"
+        )
+
+        # Never reuse poisoned provider chat sessions across the whole rotation
+        kwargs_no_conv = {k: v for k, v in kwargs.items() if k != "conversation"}
+        try:
+            async for chunk in RotatedProvider(providers, False).create_async_generator(
+                model,
+                messages,
+                stream=stream,
+                media=media,
+                api_key=api_key,
+                conversation=None,
+                **kwargs_no_conv,
+            ):
+                yield chunk
+            return
+        except Exception as first_error:
+            # Image-generation must never fall back to chat (hallucinates "已生成图片")
+            if force_image_gen:
+                debug.log(
+                    f"AnyProvider: image model '{model}' failed ({first_error}); "
+                    "trying alternate image models only (no chat fallback)"
+                )
+                alt_models = [
+                    m
+                    for m in ("gpt-image", "flux-dev", "sdxl-turbo", "flux")
+                    if m != model and m in (cls.model_map or {})
+                ]
+                for alt in alt_models:
+                    alt_providers = []
+                    for provider_name, alias in cls.model_map.get(alt, {}).items():
+                        try:
+                            provider_cls = Provider.__map__[provider_name]
+                            if (
+                                provider_cls.working
+                                and provider_cls.get_parent() not in ignored
+                                and not _opens_external_browser(provider_cls)
+                            ):
+                                if provider_cls.model_aliases is None:
+                                    provider_cls.model_aliases = {}
+                                if alt not in provider_cls.model_aliases:
+                                    provider_cls.model_aliases[alt] = alias
+                                alt_providers.append(provider_cls)
+                        except KeyError:
+                            pass
+                    alt_providers = list(
+                        {p.__name__: p for p in alt_providers}.values()
+                    )
+                    if not alt_providers:
+                        continue
+                    try:
+                        debug.log(
+                            f"AnyProvider: image alt model={alt} "
+                            f"providers={[p.__name__ for p in alt_providers]}"
+                        )
+                        async for chunk in RotatedProvider(
+                            alt_providers, False
+                        ).create_async_generator(
+                            alt,
+                            messages,
+                            stream=stream,
+                            media=media,
+                            api_key=api_key,
+                            conversation=None,
+                            **kwargs_no_conv,
+                        ):
+                            yield chunk
+                        return
+                    except Exception as alt_error:
+                        debug.error(
+                            f"AnyProvider: image alt '{alt}' failed:", alt_error
+                        )
+                        continue
+                raise RuntimeError("图片生成失败，请再试一次。") from first_error
+
+            # TomGPT last resort: retry with the other free pool (vision ↔ chat)
+            debug.log(
+                f"AnyProvider: pool failed ({first_error}); "
+                "retrying with alternate free providers (fresh session)"
+            )
+
+        fallback_source = (
+            models.default_vision.best_provider
+            if has_image
+            else models.default.best_provider
+        )
+        # If vision pool failed, also try chat providers that may still answer from text context
+        try:
+            default_providers = [
+                p
+                for p in fallback_source.get_providers()
+                if p.working and p.get_parent() not in ignored
+            ]
+            if has_image:
+                for p in models.default.best_provider.get_providers():
+                    if p.working and p.get_parent() not in ignored:
+                        default_providers.append(p)
+        except Exception as e:
+            debug.error("AnyProvider: failed loading fallback providers:", e)
+            raise first_error from e
+
+        default_providers = list(
+            {
+                p.__name__: p
+                for p in default_providers
+                if p.__name__ not in {x.__name__ for x in providers}
+            }.values()
+        ) or [
+            p
+            for p in models.default.best_provider.get_providers()
+            if p.working and p.get_parent() not in ignored
+        ]
+        if not default_providers:
+            raise first_error
+
+        quiet_defaults = [p for p in default_providers if not _opens_external_browser(p)]
+        if quiet_defaults:
+            default_providers = quiet_defaults
+
+        if not has_api_key:
+            default_providers.sort(
+                key=lambda p: (
+                    bool(getattr(p, "needs_auth", False)),
+                    bool(_opens_external_browser(p)),
+                    -int(getattr(p, "live", 0) or 0),
+                )
+            )
+
+        # Flatten multimodal list content for chat fallback — Ollama etc. reject arrays
+        fallback_messages = (
+            _flatten_messages_for_text_fallback(messages) if has_image else messages
+        )
+
+        debug.log(
+            f"AnyProvider: free fallback providers: "
+            f"{[p.__name__ for p in default_providers]}"
+            f"{' (flattened multimodal)' if has_image else ''}"
+        )
+        async for chunk in RotatedProvider(default_providers, False).create_async_generator(
+            "",
+            fallback_messages,
+            stream=stream,
+            media=media,
+            api_key=api_key,
+            ignored=ignored,
+            conversation=None,
+            **kwargs_no_conv,
+        ):
+            yield chunk
+
+
+# Clean model names function
+def clean_name(name: str) -> str:
+    name = name.split("/")[-1].split(":")[0].lower()
+    # Date patterns
+    name = re.sub(r"-\d{4}-\d{2}-\d{2}", "", name)
+    # name = re.sub(r'-\d{3,8}', '', name)
+    name = re.sub(r"-\d{2}-\d{2}", "", name)
+    name = re.sub(r"-[0-9a-f]{8}$", "", name)
+    # Version patterns
+    name = re.sub(
+        r"-(instruct|preview|experimental|v\d+|fp8|bf16|hf|free|tput)$", "", name
+    )
+    # Other replacements
+    name = name.replace("_", ".")
+    name = name.replace("c4ai-", "")
+    name = name.replace("meta-llama-", "llama-")
+    name = name.replace("llama-", "llama").replace("llama", "llama-")
+    name = name.replace("qwen-", "qwen").replace("qwen", "qwen-")
+    name = name.replace("stable-diffusion-3.5-large", "sd-3.5-large")
+    name = name.replace("flux.1-", "flux-")
+    name = name.replace("-001", "")
+    name = name.replace("-002", "")
+    name = name.replace("-instruct", "")
+    name = name.replace("-latest", "")
+    name = name.replace("gpt-5-1", "gpt-5.1")
+    name = name.replace("gpt-5-2", "gpt-5.2")
+    name = name.replace("claude-haiku-4.5", "claude-haiku-4-5")
+    name = name.replace("claude-sonnet-4.5", "claude-sonnet-4-5")
+    return name

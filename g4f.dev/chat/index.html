@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en" data-framework="javascript">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>TomGPT - 你的私人 AI 对话助手</title>
+
+    <!-- Improved meta description with relevant keywords -->
+    <meta name="description" content="TomGPT 是基于 gpt4free 打造的私人 AI 对话网页应用，支持多模型、多供应商与本地部署。" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:title" content="TomGPT - 你的私人 AI 对话助手" />
+    <meta property="og:description" content="使用 TomGPT 进行私密、可定制的多模型 AI 对话。" />
+    <meta property="og:image" content="../dist/img/g4f.svg" />
+    <meta property="og:url" content="http://localhost:8080" />
+    <meta property="og:type" content="website" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="TomGPT - 你的私人 AI 对话助手" />
+    <meta name="twitter:description" content="TomGPT 支持多 AI 供应商，可本地运行的 ChatGPT 风格网页应用。" />
+    <meta name="twitter:image" content="../dist/img/g4f.svg" />
+
+    <!-- Canonical URL to avoid duplicate content issues -->
+    <link rel="canonical" href="/chat/" />
+
+    <link rel="stylesheet" href="../dist/css/style.css?v=tomgpt-flag-image-7" />
+    <link rel="stylesheet" href="../dist/css/tomgpt.css?v=tomgpt-flag-image-7" />
+    <link rel="stylesheet" href="../dist/css/all.min.css" />
+    <link rel="stylesheet" href="../dist/css/dracula.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe/dist/photoswipe.css" />
+    <meta name="theme-color" content="#212121" id="tomgpt-theme-color" />
+
+    <link rel="icon" href="../dist/img/g4f.svg" type="image/svg+xml">
+    <link rel="shortcut icon" href="../dist/img/g4f.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="../dist/img/g4f.svg">
+    <link rel="manifest" href="../dist/img/site.webmanifest">
+
+    <script src="../dist/js/framework.js?v=tomgpt-flag-image-7" defer></script>
+    <script src="../dist/js/mcp-client.js?v=tomgpt-flag-image-7" defer></script>
+    <script src="../dist/js/chat.v1.js?v=tomgpt-flag-image-7" defer></script>
+    <script src="../dist/js/recorder.js" async></script>
+    <script src="../dist/js/highlight.min.js" async></script>
+    <script src="../dist/js/highlightjs-copy.min.js" async></script>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsencrypt/bin/jsencrypt.min.js" defer></script>
+    <script src="../dist/js/sanitize-html.js" async></script>
+    <script type="module" defer>
+        import { loadProviders, createClient, providerLocalStorage, captureUserTierHeaders, mergeToolCalls, Puter }  from "../dist/js/providers.js";
+        window.loadProviders = loadProviders;
+        window.createClient = createClient;
+        window.providerLocalStorage = providerLocalStorage;
+        window.captureUserTierHeaders = captureUserTierHeaders;
+        window.mergeToolCalls = mergeToolCalls;
+        window.Puter = Puter;
+    </script>
+    <script type="module" async>
+        import { convertModel, getModelTags, isValidModel } from '../dist/js/model.js';
+        window.convertModel = convertModel;
+        window.getModelTags = getModelTags;
+        window.isValidModel = isValidModel;
+    </script>
+    <script>
+      window.MathJax = {
+        chtml: {
+          scale: 1,
+          displayAlign: 'left'
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        },
+      };
+    </script>
+    <script id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+    <script>
+      var tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      var firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    </script>
+
+    <template>
+      <script src="https://cdn.jsdelivr.net/npm/gpt-tokenizer/dist/o200k_base.js" async></script>
+    </template>
+    <script async>
+      if (localStorage.getItem("countTokens") !== "false") {
+        const template = document.head.querySelector('template');
+        if (template) {
+          document.head.appendChild(template.content);
+          template.remove();
+        }
+      }
+    </script>
+
+    <script type="module" src="../dist/js/photoswipe.js" async></script>
+
+    <script>
+      const user_image = '<img src="../dist/img/user_avatar.jpeg" alt="User avatar" />';
+      const gpt_image = '<img src="../dist/img/g4f.svg" alt="TomGPT" />';
+      window.conversation_id = "";
+    </script>
+
+    <link rel="preload" href="../dist/css/style.css?v=tomgpt-flag-image-7" as="style">
+    <link rel="preload" href="../dist/js/chat.v1.js?v=tomgpt-flag-image-7" as="script">
+</head>
+<body class="tomgpt">
+    <script async>
+      // TomGPT defaults: minimal (no liquid glass), honor saved theme
+      document.body.classList.add("tomgpt");
+      if (localStorage.getItem("liquid") === "true") {
+        document.body.classList.add("liquid");
+      } else if (localStorage.getItem("liquid") === null) {
+        localStorage.setItem("liquid", "false");
+      }
+      // ChatGPT-like default: dark charcoal (not navy/teal)
+      if (localStorage.getItem("darkMode") === "false") {
+        document.body.classList.add("white");
+        var tc = document.getElementById("tomgpt-theme-color");
+        if (tc) tc.setAttribute("content", "#f8fafc");
+      }
+      if (localStorage.getItem("disableAnimations") !== "false") {
+        document.body.classList.add("no-animations");
+      }
+    </script>
+
+    <div class="media-overlay" aria-hidden="true"></div>
+    <div class="gradient" aria-hidden="true"></div>
+
+    <div class="container">
+        <a href="sr.html" class="hidden">Open Screen Reader Optimized Version</a>
+        <aside class="sidebar" aria-label="Primary sidebar navigation">
+            <div class="sidebar-container">
+                <header class="sidebar-header">
+                    <h1 class="sidebar-logo" data-translate="true">TomGPT</h1>
+                    <button class="mobile-sidebar-toggle" aria-label="Toggle sidebar menu">
+                        <i class="fa-solid fa-bars" aria-hidden="true"></i>
+                    </button>
+                </header>
+                <div id="user-tier-info" class="user-tier-info" role="status" aria-label="User tier and usage info">
+                    <div class="tier-row">
+                        <div class="tier-badge">
+                            <i class="fa-solid fa-user" aria-hidden="true"></i>
+                            <span id="user-tier-text">Guest</span>
+                        </div>
+                        <button type="button" id="sidebar-login-btn" class="tier-auth-btn" title="在设置中配置 API Key，无需跳转外部登录" onclick="open_settings(); showNotification('请在设置里填写 API Key，TomGPT 不会跳转到外部登录页', 'success', 2800);">
+                            <i class="fa-solid fa-key" aria-hidden="true"></i>
+                            <span>API Key</span>
+                        </button>
+                        <button id="sidebar-logout-btn" class="tier-auth-btn hidden" onclick="cloudSyncLogout()" title="Logout">
+                            <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+                            <span>Logout</span>
+                        </button>
+                    </div>
+                    <div class="tier-limits hidden" id="tier-limits-row">
+                        <span id="max-tokens-text" title="Tokens remaining/limit"><i class="fa-solid fa-coins" aria-hidden="true"></i> -</span>
+                        <span id="max-requests-text" title="Requests remaining/limit"><i class="fa-solid fa-list" aria-hidden="true"></i> -</span>
+                        <span id="cake-credits-text" title="Credits earned by baking proof-of-work cakes"><i class="fa-solid fa-cake-candles" aria-hidden="true"></i> -</span>
+                    </div>
+                </div>
+                <nav class="top" aria-label="Conversation actions">
+                    <button class="new_convo" onclick="new_conversation()" aria-label="新聊天">
+                        <i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>
+                        <span>新聊天</span>
+                    </button>
+                    <button class="new_convo" onclick="new_conversation(true)" aria-label="Start a private conversation" hidden>
+                        <i class="fa-solid fa-user-secret" aria-hidden="true"></i>
+                        <span>Private Conversation</span>
+                    </button>
+                    <div id="box_conversations" class="conversations" role="region" aria-live="polite" aria-label="List of conversations"></div>
+                </nav>
+                <section class="bottom_buttons" aria-label="Support and links">
+                    <button onclick="open_settings();" aria-label="设置">
+                        <i class="fa-solid fa-gear" aria-hidden="true"></i>
+                        <span>设置</span>
+                    </button>
+                    <div class="info" role="region" aria-label="Support Discord">
+                        <i class="fa fa-question-circle" aria-hidden="true"></i>
+                        <span class="convo-title">
+                            support ~ 
+                            <a href="https://discord.gg/qXA4Wf4Fsm" target="_blank" rel="noopener noreferrer">discord.gg/qXA4Wf4Fsm</a>
+                        </span>
+                    </div>
+                    <div class="info" role="region" aria-label="GitHub Repository">
+                        <i class="fa-brands fa-github" aria-hidden="true"></i>
+                        <span class="convo-title">
+                            github ~ 
+                            <a href="https://github.com/xtekky/gpt4free" target="_blank" rel="noopener noreferrer">@xtekky/gpt4free</a>
+                        </span>
+                    </div>
+                    <div class="info" role="region" aria-label="Version info">
+                        <i class="fa-solid fa-star" aria-hidden="true"></i>
+                        <span id="version_text" class="convo-title" aria-live="polite"></span>
+                    </div>
+                </section>
+            </div>
+        </aside>
+
+        <!-- Settings panel -->
+        <section class="settings hidden" aria-label="Application Settings" tabindex="-1">
+            <div class="paper">
+                <header class="settings-top-bar">
+                    <button class="settings-back-button" onclick="open_settings();" aria-label="返回聊天">
+                        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                    </button>
+                     <h2 class="settings-title">设置</h2>
+                </header>
+                <nav class="settings-tabs" role="tablist" aria-label="设置分类">
+                    <button class="settings-tab active" data-tab="general" role="tab" aria-selected="true" aria-controls="tab-general">
+                        <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+                        <span>通用</span>
+                    </button>
+                    <button class="settings-tab" data-tab="appearance" role="tab" aria-selected="false" aria-controls="tab-appearance">
+                        <i class="fa-solid fa-palette" aria-hidden="true"></i>
+                        <span>外观</span>
+                    </button>
+                    <button class="settings-tab" data-tab="prompts" role="tab" aria-selected="false" aria-controls="tab-prompts">
+                        <i class="fa-solid fa-comment" aria-hidden="true"></i>
+                        <span>提示词</span>
+                    </button>
+                    <button class="settings-tab" data-tab="providers" role="tab" aria-selected="false" aria-controls="tab-providers">
+                        <i class="fa-solid fa-server" aria-hidden="true"></i>
+                        <span>通道</span>
+                    </button>
+                    <button class="settings-tab" data-tab="api" role="tab" aria-selected="false" aria-controls="tab-api">
+                        <i class="fa-solid fa-key" aria-hidden="true"></i>
+                        <span>自定义</span>
+                    </button>
+                    <button class="settings-tab" data-tab="advanced" role="tab" aria-selected="false" aria-controls="tab-advanced">
+                        <i class="fa-solid fa-gear" aria-hidden="true"></i>
+                        <span>高级</span>
+                    </button>
+                </nav>
+                <div class="settings-content">
+                <form>
+                  <!-- General Tab -->
+                  <div class="settings-tab-content active" id="tab-general" role="tabpanel" aria-labelledby="tab-general">
+                  <h3 class="settings-section-title">聊天体验</h3>
+                  <div class="settings-group">
+                  <div class="field">
+                      <span class="label">渲染 Markdown</span>
+                      <input type="checkbox" id="renderMarkdown" checked />
+                      <label for="renderMarkdown" class="toogle" title="Enable rendering of Markdown content"></label>
+                  </div>
+                  <div class="field">
+                      <span class="label">模拟打字效果</span>
+                      <input type="checkbox" id="simulateTyping" checked />
+                      <label for="simulateTyping" class="toogle" title="Enable simulated typing effect for responses"></label>
+                  </div>
+                  <div class="field">
+                      <span class="label">AI 辅助功能</span>
+                      <input type="checkbox" id="aiFeatures" />
+                      <label for="aiFeatures" class="toogle" title="Enable providing Follow Ups and Title Generation"></label>
+                  </div>
+                  <div class="field">
+                      <span class="label">禁用对话历史</span>
+                      <input type="checkbox" id="history" />
+                      <label for="history" class="toogle" title="Improve response time or fix large conversation issues"></label>
+                  </div>
+                  <div class="field">
+                      <span class="label">统计字数与 Token</span>
+                      <input type="checkbox" id="countTokens" checked />
+                      <label for="countTokens" class="toogle" title="Enable word and token counting"></label>
+                  </div>
+                  <div class="field">
+                      <span class="label">下载生成的媒体</span>
+                      <input type="checkbox" id="download_media" checked/>
+                      <label for="download_media" class="toogle" title="Download and save generated images, audios, and videos"></label>
+                  </div>
+                  <div class="field">
+                      <span class="label">隐藏仅单一通道的模型</span>
+                      <input type="checkbox" id="hideOneProviderModels" checked />
+                      <label for="hideOneProviderModels" class="toogle" title="Hide models that only have one provider (no backup)"></label>
+                  </div>
+                  <div class="field">
+                      <span class="label">自动横竖屏比例</span>
+                      <input type="checkbox" id="automaticOrientation" checked />
+                      <label for="automaticOrientation" class="toogle" title="Auto-orient generated media"></label>
+                  </div>
+                  </div>
+                  <h3 class="settings-section-title">输入与语音</h3>
+                  <div class="settings-group">
+                  <div class="field box">
+                      <label for="userInput-height" class="label" title="Set maximum height of input box">输入框最大高度 (px)</label>
+                      <input type="number" id="userInput-height" value="180" min="100" max="500" />
+                  </div>
+                  <div class="field box">
+                      <label for="recognition-language" class="label" title="Set preferred language for speech recognition">语音识别语言</label>
+                      <input type="text" id="recognition-language" value="" placeholder="默认：浏览器语言" />
+                  </div>
+                  <div class="field row box">
+                      <label for="voice" class="label" title="Select voice for text-to-speech synthesis">朗读声音</label>
+                      <select id="voice">
+                          <option value="">Loading voices...</option>
+                      </select>
+                  </div>
+                  </div>
+                  <h3 class="settings-section-title">数据</h3>
+                  <div class="bottom_buttons">
+                      <button type="button" class="settings-btn settings-btn-danger" onclick="delete_conversations()" aria-label="Clear all conversations">
+                          <i class="fa-solid fa-trash" aria-hidden="true"></i>
+                          <span>清空对话</span>
+                      </button>
+                      <button type="button" class="settings-btn" onclick="save_storage()" aria-label="Export conversations">
+                          <i class="fa-solid fa-download" aria-hidden="true"></i>
+                          <span>导出对话</span>
+                      </button>
+                      <button type="button" class="settings-btn" onclick="save_storage(true)" aria-label="Export settings">
+                          <i class="fa-solid fa-pencil" aria-hidden="true"></i>
+                          <span>导出设置</span>
+                      </button>
+                      <button type="button" class="settings-btn" onclick="this.querySelector('.fa-spin').classList.remove('hidden'); framework.translateAll().then(() => {window.location.reload()}).catch(() => {this.querySelector('.fa-spin').classList.add('hidden')})" aria-label="Translate user interface">
+                          <i class="fa-solid fa-language" aria-hidden="true"></i>
+                          <span>翻译界面</span>
+                          <i class="fas fa-spinner fa-spin hidden" aria-hidden="true"></i>
+                      </button>
+                      <button type="button" class="settings-btn settings-btn-danger" onclick="deleteTranslations() && window.location.reload()" aria-label="Delete translations">
+                          <i class="fa-solid fa-trash" aria-hidden="true"></i>
+                          <span>删除翻译</span>
+                      </button>
+                      <button id="showLog" type="button" class="settings-btn" aria-label="Show log" onclick="window.showLog()">
+                          <i class="fa-solid fa-terminal" aria-hidden="true"></i>
+                          <span>显示日志</span>
+                      </button>
+                  </div>
+                  </div>
+
+                  <!-- Appearance Tab -->
+                  <div class="settings-tab-content" id="tab-appearance" role="tabpanel" aria-labelledby="tab-appearance">
+                  <h3 class="settings-section-title">主题</h3>
+                  <div class="settings-group">
+                  <div class="field tomgpt-theme-field">
+                      <span class="label">界面主题</span>
+                      <div class="tomgpt-theme-switch" role="group" aria-label="选择主题">
+                          <button type="button" class="tomgpt-theme-btn active" data-theme="dark" id="tomgptThemeDark">夜间模式</button>
+                          <button type="button" class="tomgpt-theme-btn" data-theme="light" id="tomgptThemeLight">明亮模式</button>
+                      </div>
+                      <input type="checkbox" id="darkMode" checked class="hidden" aria-hidden="true" />
+                      <small class="settings-hint">可随时在这里切换夜间 / 明亮模式</small>
+                  </div>
+                  </div>
+                  <h3 class="settings-section-title">界面选项</h3>
+                  <div class="settings-group">
+                  <div class="field">
+                      <span class="label">启用模型搜索</span>
+                      <input type="checkbox" id="enableModelSearch" checked />
+                      <label for="enableModelSearch" class="toogle" title="启用模型搜索"></label>
+                  </div>
+                  <div class="field" id="searchModelField" style="display: none;">
+                      <span class="label">按模型名搜索</span>
+                      <input type="checkbox" id="searchByModel" checked />
+                      <label for="searchByModel" class="toogle" title="按模型名搜索"></label>
+                  </div>
+                  <div class="field" id="searchProviderField" style="display: none;">
+                      <span class="label">按供应商搜索</span>
+                      <input type="checkbox" id="searchByProvider" />
+                      <label for="searchByProvider" class="toogle" title="按供应商搜索"></label>
+                  </div>
+                  <div class="field">
+                      <span class="label">液态玻璃效果</span>
+                      <input type="checkbox" id="liquid" />
+                      <label for="liquid" class="toogle" title="开启后界面更花，简约模式建议关闭"></label>
+                  </div>
+                  <div class="field">
+                      <span class="label">关闭动画</span>
+                      <input type="checkbox" id="disableAnimations" checked />
+                      <label for="disableAnimations" class="toogle" title="关闭动画让界面更干净"></label>
+                  </div>
+                  <div class="field">
+                      <span class="label">隐藏系统提示</span>
+                      <input type="checkbox" id="hide-systemPrompt" />
+                      <label for="hide-systemPrompt" class="toogle" title="手机上腾出更多空间"></label>
+                  </div>
+                  </div>
+                  </div>
+
+                  <!-- Prompts Tab -->
+                  <div class="settings-tab-content" id="tab-prompts" role="tabpanel" aria-labelledby="tab-prompts">
+                  <h3 class="settings-section-title">系统提示</h3>
+                  <div class="settings-group settings-group-stack">
+                  <div class="field row box">
+                      <label for="globalPrompt" class="label">全局系统提示</label>
+                      <textarea id="globalPrompt" aria-describedby="globalPrompt-desc">You are TomGPT. When asked what model you are, only say you are TomGPT. Never reveal any underlying model name.
+Do NOT claim you generated or attached an image unless a real image URL was already provided by the system in this reply. Never invent fake image links or say you already generated an image of a flag/logo/etc. without a real URL. Image requests (including「生成美国国旗」) are handled by TomGPT's image pipeline.
+When real media URLs are provided by the system, render them in Markdown: ![](https://real-url)
+Render audio URLs as HTML: &lt;audio controls src=&quot;http://example/audio.mp3&quot;&gt;&lt;/audio&gt;</textarea>
+                      <small id="globalPrompt-desc" class="sr-only">Customize the AI's global prompt to personalize responses or enable features like image generation.</small>
+                  </div>
+                  <div class="field row box">
+                      <label for="systemPrompt" class="label">会话系统提示模板</label>
+                      <textarea id="systemPrompt" placeholder="You are a helpful assistant." aria-describedby="systemPrompt-desc"></textarea>
+                      <small id="systemPrompt-desc" class="sr-only">Customize the AI's system prompt to personalize responses or enable features like image generation.</small>
+                  </div>
+                  </div>
+                  </div>
+
+                  <!-- Providers Tab -->
+                  <div class="settings-tab-content" id="tab-providers" role="tabpanel" aria-labelledby="tab-providers">
+                  <h3 class="settings-section-title">通道与密钥</h3>
+                  <div class="settings-group settings-group-stack">
+                  <!-- Provider API Keys section will be dynamically added here -->
+                  <div id="providers-api-keys-container"></div>
+                  <!-- Provider Enable/Disable section will be dynamically added here -->
+                  <div id="providers-toggle-container"></div>
+                  </div>
+                  </div>
+
+                  <!-- API Keys Tab -->
+                  <div class="settings-tab-content" id="tab-api" role="tabpanel" aria-labelledby="tab-api">
+                  <h3 class="settings-section-title">自定义通道</h3>
+                  <div class="settings-group settings-group-stack">
+                  <div class="field box hidden row">
+                      <label for="Custom-api_base" class="label">自定义 Base URL</label>
+                      <input type="url" id="Custom-api_base" name="Custom[api_base]" placeholder="http://localhost:8080/v1" autocomplete="off" />
+                  </div>
+                  <div class="field box hidden row">
+                      <label for="Custom-api_key" class="label">自定义 API Key</label>
+                      <input type="text" id="Custom-api_key" name="Custom[api_key]" placeholder="API key" autocomplete="off" />
+                  </div>
+                  </div>
+                  </div>
+
+                  <!-- Advanced Tab -->
+                  <div class="settings-tab-content" id="tab-advanced" role="tabpanel" aria-labelledby="tab-advanced">
+                  <h3 class="settings-section-title">调试</h3>
+                  <div class="settings-group">
+                  <div class="field">
+                      <span class="label">日志路由</span>
+                      <input type="checkbox" id="log_routing" />
+                      <label for="log_routing" class="toogle" title="Route all requests through local backend for logging"></label>
+                  </div>
+                  <div class="field hidden">
+                      <span class="label">Refine Files with spaCy</span>
+                      <input type="checkbox" id="refine" />
+                      <label for="refine" class="toogle" title="Enable file refinement with spaCy"></label>
+                  </div>
+                  <div class="field">
+                      <span class="label">上报错误</span>
+                      <input type="checkbox" id="reportError" checked />
+                      <label for="reportError" class="toogle" title="Send error reports"></label>
+                  </div>
+                  <div class="field">
+                      <span class="label">调试模式</span>
+                      <input type="checkbox" id="debugMode" />
+                      <label for="debugMode" class="toogle" title="Enable debug mode"></label>
+                  </div>
+                  </div>
+
+                  <h3 class="settings-section-title">扩展</h3>
+                  <div class="settings-group settings-group-stack">
+                  <!-- MCP Servers Section -->
+                  <div class="field mcp-section">
+                      <div class="mcp-header">
+                          <span class="label">MCP Servers</span>
+                          <button type="button" id="add-mcp-server-btn" aria-label="Add MCP Server" title="Add a new MCP server">
+                              <i class="fa-solid fa-plus"></i>
+                          </button>
+                      </div>
+                      <div id="mcp-servers-list" class="mcp-servers-list"></div>
+                  </div>
+
+                  <!-- MCP Tools Section -->
+                  <div class="field mcp-section">
+                      <div class="mcp-header">
+                          <span class="label">MCP Tools</span>
+                          <button type="button" id="refresh-mcp-tools-btn" aria-label="Refresh Tools" title="Refresh tools from MCP servers">
+                              <i class="fa-solid fa-sync"></i>
+                          </button>
+                      </div>
+                      <div id="mcp-tools-list" class="mcp-tools-list"></div>
+                  </div>
+
+                  <!-- PA Providers Section -->
+                  <div class="field mcp-section">
+                      <div class="mcp-header">
+                          <span class="label">PA Providers</span>
+                          <button type="button" id="refresh-pa-providers-btn" aria-label="Refresh PA Providers" title="Refresh PA providers from workspace">
+                              <i class="fa-solid fa-sync"></i>
+                          </button>
+                      </div>
+                      <div id="pa-providers-list" class="mcp-tools-list"></div>
+                  </div>
+                  </div>
+                  </div>
+
+                  <!-- Cloud Sync removed: TomGPT is fully local & free -->
+                  <div class="settings-tab-content hidden" id="tab-cloudsync" aria-hidden="true" style="display:none"></div>
+                </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Provider forms container -->
+        <section class="provider_forms hidden" aria-label="Provider forms">
+            <div class="bottom_buttons">
+                <button id="close_provider_forms" type="button" aria-label="Close provider forms">
+                    <i class="fa-regular fa-circle-xmark" aria-hidden="true"></i>
+                    <span>Close</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Main chat container -->
+        <main class="chat-container" role="main" aria-label="Chat conversation">
+            <header class="chat-top-panel">
+                <button class="mobile-sidebar-toggle" aria-label="Toggle sidebar menu">
+                    <i class="fa-solid fa-bars" aria-hidden="true"></i>
+                </button>
+                <h2 class="convo-title" id="conversationTitle">TomGPT</h2>
+                <button class="new_convo_icon" onclick="new_conversation()" aria-label="Start new conversation">
+                    <i class="fa-regular fa-plus" aria-hidden="true"></i>
+                </button>
+                <button class="show_log hidden" onclick="showLog()" aria-label="Show log">
+                    <i class="fa-solid fa-terminal" aria-hidden="true"></i>
+                </button>
+                <script async>
+                if (localStorage.getItem("debugMode") === "true") {
+                    let button = document.querySelector('.chat-top-panel .show_log');
+                    if (button) {
+                        button.classList.remove('hidden');
+                    }
+                    button = document.querySelector('.chat-top-panel .new_convo_icon');
+                    if (button) {
+                        button.classList.add('hidden');
+                    }
+                }
+                </script>
+            </header>
+
+            <label for="chatPrompt" class="sr-only">System prompt textarea</label>
+            <textarea id="chatPrompt" class="box" placeholder="System prompt" aria-multiline="true" rows="3"></textarea>
+
+            <button class="slide-header" aria-label="Collapse chat header">
+                <i class="fa-solid fa-angles-up" aria-hidden="true"></i>
+            </button>
+
+            <section class="chat-body" id="chatBody" tabindex="0" aria-live="polite" aria-label="Conversation content"></section>
+
+            <footer class="chat-footer">
+                <div class="chat-toolbar" role="region" aria-label="Chat controls">
+                    <div id="input-count" class="">
+                        <button class="hide-input" aria-label="Hide input">
+                            <i class="fa-solid fa-angles-down" aria-hidden="true"></i>
+                        </button>
+                        <label for="agree" class="text" onclick="this.innerText='';"></label>
+                    </div>
+                    <div class="stop_generating stop_generating-hidden" role="region" aria-live="assertive">
+                        <button id="cancelButton" aria-label="停止生成">
+                            <span>停止生成</span>
+                            <i class="fa-solid fa-stop" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="regenerate" role="region" aria-live="polite" hidden>
+                        <button id="regenerateButton" aria-label="重新生成">
+                            <span>重新生成</span>
+                            <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="media-player" aria-hidden="true">
+                    <i class="fa-regular fa-x" aria-hidden="true"></i>
+                </div>
+
+                <div class="media-select hidden" aria-label="Media input options" role="group">
+                    <label class="image-select" for="image" title="选择图片">
+                        <input
+                          type="file"
+                          id="image"
+                          name="image"
+                          accept="image/*,.png,.jpg,.jpeg,.gif,.webp,.bmp"
+                          required
+                          aria-label="选择图片文件"
+                        />
+                        <i class="fa-regular fa-image" aria-hidden="true"></i>
+                    </label>
+                    <label class="capture-camera" for="camera" title="拍照上传">
+                        <input
+                          type="file"
+                          id="camera"
+                          name="camera"
+                          accept="image/*"
+                          capture="camera"
+                          required
+                          aria-label="使用相机拍照"
+                        />
+                        <i class="fa-solid fa-camera" aria-hidden="true"></i>
+                    </label>
+                    <label class="capture-audio" for="audio" title="Record audio">
+                        <small class="sr-only">Record audio message</small>
+                        <i class="fa-solid fa-microphone" aria-hidden="true"></i>
+                    </label>
+                    <label class="add-link" for="link" title="Add link">
+                        <i class="fa-solid fa-link" aria-hidden="true"></i>
+                    </label>
+                    <button class="close" type="button" aria-label="Close media selector">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <section class="user-input" role="region" aria-label="User input area">
+                    <div id="voice-listening-bar" class="voice-listening-bar" hidden aria-live="polite">
+                        <div class="voice-wave" aria-hidden="true">
+                            <span></span><span></span><span></span><span></span><span></span>
+                        </div>
+                        <div class="voice-listening-text">
+                            <strong class="voice-listening-status">正在听…</strong>
+                            <span class="voice-listening-transcript"></span>
+                        </div>
+                        <button type="button" class="voice-listening-stop" aria-label="停止语音输入">点击停止</button>
+                    </div>
+                    <div class="input-area">
+                        <a id="download" aria-hidden="true"></a><!-- Download Button -->
+
+                        <div id="pending-attachments" class="pending-attachments" hidden aria-label="待发送附件"></div>
+                        <label for="userInput" class="sr-only">Type your message</label>
+                        <textarea
+                          id="userInput"
+                          class="box"
+                          placeholder="有什么可以帮忙的？"
+                          cols="30"
+                          rows="1"
+                          style="white-space: pre-wrap;resize: none;"
+                          autocomplete="off"
+                        ></textarea>
+
+                        <label class="file-label image-label" aria-label="USB device icon for uploads">
+                            <i class="fa-brands fa-usb" aria-hidden="true"></i>
+                        </label>
+
+                        <label class="file-label" for="file" title="上传文件：PDF、Word、Excel、图片、TXT 等" aria-label="上传 PDF、Word、图片等文件">
+                            <input
+                              type="file"
+                              id="file"
+                              name="file"
+                              accept=".pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.xls,.ppt,.pptx,.rtf,.odt,.epub,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain"
+                              multiple
+                              aria-describedby="fileHelp"
+                            />
+                            <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
+                        </label>
+                        <small id="fileHelp" class="sr-only">支持上传 PDF、Word、Excel、图片、TXT 等文件，并与消息一起发送给 TomGPT。</small>
+
+                        <label class="micro-label" for="micro" aria-label="Microphone toggle">
+                            <small class="sr-only">Toggle microphone for audio input.</small>
+                            <i class="fa-solid fa-microphone-slash" aria-hidden="true"></i>
+                        </label>
+
+                        <button class="code" title="Insert code block" type="button" aria-label="Insert code block">
+                            <i class="fa-solid fa-code" aria-hidden="true"></i>
+                        </button>
+
+                        <div class="send-buttons" role="group" aria-label="Send message buttons">
+                            <button id="addButton" aria-label="Add message" type="button">
+                                <i class="fa-solid fa-square-plus" aria-hidden="true"></i>
+                                <span>Add</span>
+                            </button>
+
+                            <button id="sendButton" aria-label="发送消息" type="submit" title="发送">
+                                <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+                                <span>Send</span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <nav class="chat-buttons" role="navigation" aria-label="Chat options">
+                    <div class="field">
+                        <button id="search" aria-label="Enable web search">
+                            <small class="sr-only">Enable web search</small>
+                            <i class="fa-solid fa-search" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="field">
+                        <label for="model" class="sr-only">Select AI Model</label>
+                        <select name="model" id="model" aria-describedby="modelHelp">
+                            <option value="" selected>Model: Default</option>
+                        </select>
+                        <small id="modelHelp" class="sr-only">Select AI model to use for conversations.</small>
+
+                        <div class="model-selector hidden" role="region" aria-label="Model search and suggestions">
+                            <div id="model-suggestions" class="suggestions-dropdown" aria-live="polite"></div>
+                            <input
+                              type="text"
+                              id="model-search"
+                              placeholder="Search models (e.g. 'gpt-4', 'claude')..."
+                              autocomplete="off"
+                              autocapitalize="off"
+                              autocorrect="off"
+                              spellcheck="false"
+                              aria-label="Search models"
+                            />
+                        </div>
+                    </div>
+                    <div class="field">
+                        <button id="model_edit" type="button" aria-label="Edit model settings">
+                            <i class="fa-solid fa-edit" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="field">
+                        <label for="provider" class="sr-only">Select Provider</label>
+                        <select name="provider" id="provider" aria-describedby="providerHelp">
+                            <option value="AnyProvider">Provider: Auto</option>
+                        </select>
+                        <small id="providerHelp" class="sr-only">Select AI provider for conversations.</small>
+                    </div>
+                    <div class="field">
+                        <button id="pin" type="button" aria-label="Pin conversation">
+                            <i class="fa-solid fa-thumbtack" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div id="pin_container" class="field" aria-live="polite"></div>
+                </nav>
+            </footer>
+        </main>
+
+        <!-- Logs -->
+        <section class="log hidden" aria-label="Application logs" tabindex="-1">
+            <header class="log-top-bar">
+                <button class="log-back-button" onclick="window.hideLog();" aria-label="Back to settings">
+                    <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                </button>
+                <h2>Logs</h2>
+            </header>
+            <div class="log-content" role="region" aria-live="polite"></div>
+        </section>
+
+        <!-- Highlight.js iframe container-->
+        <div class="hljs-iframe-container hidden" aria-hidden="true">
+            <iframe class="hljs-iframe" title="Code syntax preview"></iframe>
+        </div>
+    </div>
+</body>
+</html>
