@@ -39,10 +39,19 @@ def get_gui_app(demo: bool = False, timeout: int = None, stream_timeout: int = N
 
 
 def run_gui(host: str = "0.0.0.0", port: int = 8080, debug: bool = False) -> None:
+    from ..config import AppConfig
+
+    AppConfig.load_from_env()
     config = {"host": host, "port": port, "debug": debug, "use_reloader": False}
 
     app = get_gui_app()
 
+    password = AppConfig.resolved_access_password()
+    auth_state = "enabled (Basic/Bearer)" if password else "disabled (loopback-only recommended)"
     print(f"TomGPT running at http://127.0.0.1:{config['port']}/chat/")
+    print(f"TomGPT access password: {auth_state}")
+    print(
+        f"TomGPT rate limits: chat={AppConfig.rate_limit} global={AppConfig.rate_limit_global}"
+    )
     app.run(**config)
     print(f"TomGPT closed (port {config['port']})")

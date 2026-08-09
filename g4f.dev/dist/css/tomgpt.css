@@ -1531,7 +1531,8 @@ body.tomgpt.no-animations .content_inner.tomgpt-streaming::after,
 body.tomgpt.no-animations .content_inner.tomgpt-streaming .cursor,
 body.tomgpt.no-animations .message:has(.tomgpt-streaming) .assistant img,
 body.tomgpt.no-animations .message.tomgpt-empty .content::before,
-body.tomgpt.no-animations .tomgpt-flow-word {
+body.tomgpt.no-animations .tomgpt-flow-word,
+body.tomgpt.no-animations .tomgpt-onboard {
     animation: none !important;
     transition: none !important;
     opacity: 1 !important;
@@ -1716,6 +1717,62 @@ body.tomgpt .welcome-subtitle {
     letter-spacing: 0.035em;
     opacity: 0;
     animation: tomgpt-scene-layer-in 0.52s var(--motion-spring) 820ms forwards;
+}
+
+body.tomgpt .tomgpt-onboard {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    max-width: 34rem;
+    margin: 14px auto 0;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--blur-border));
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    text-align: left;
+    opacity: 0;
+    animation: tomgpt-scene-layer-in 0.5s var(--motion-spring) 980ms forwards;
+}
+
+body.tomgpt .tomgpt-onboard p {
+    margin: 0;
+    color: var(--colour-1);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+body.tomgpt .tomgpt-onboard strong {
+    color: var(--accent);
+    font-weight: 650;
+}
+
+body.tomgpt .tomgpt-onboard-dismiss {
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 999px;
+    padding: 6px 10px;
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--colour-1);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+body.tomgpt .tomgpt-onboard-dismiss:hover {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+body.tomgpt #version_text a,
+body.tomgpt .chat-options a[href*="github.com/xtekky"],
+body.tomgpt .chat-options a[href*="g4f.dev"] {
+    display: none !important;
+}
+
+body.tomgpt .suggestion span {
+    text-align: left;
+    line-height: 1.35;
+    word-break: break-word;
 }
 
 body.tomgpt .suggestions {

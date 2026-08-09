@@ -24,5 +24,6 @@ from .tomgpt_failover import *
 from .tomgpt_export_docx import *
 from .tomgpt_default_pool import *
 from .tomgpt_free_models import *
+from .tomgpt_security import *
 
 unittest.main()

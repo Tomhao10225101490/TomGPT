@@ -343,6 +343,58 @@ def create_app():
         expose_headers=["*"],
     )
 
+    from ..tomgpt_security import (
+        RateLimiter,
+        client_ip,
+        is_chat_heavy_path,
+        is_static_asset_path,
+        parse_rate_limit,
+    )
+
+    _chat_spec = parse_rate_limit(AppConfig.rate_limit)
+    _global_spec = parse_rate_limit(AppConfig.rate_limit_global)
+    _chat_limiter = RateLimiter(*_chat_spec) if _chat_spec else None
+    _global_limiter = RateLimiter(*_global_spec) if _global_spec else None
+
+    @app.middleware("http")
+    async def tomgpt_rate_limit(request: Request, call_next):
+        if request.method == "OPTIONS" or is_static_asset_path(request.url.path):
+            return await call_next(request)
+
+        ip = client_ip(
+            request.client.host if request.client else None,
+            request.headers.get("x-forwarded-for"),
+            trust_proxy=AppConfig.trust_proxy,
+        )
+        if _global_limiter and not _global_limiter.allow(ip):
+            retry = _global_limiter.retry_after(ip)
+            return JSONResponse(
+                {
+                    "error": {
+                        "message": "Rate limit exceeded / 请求过于频繁，请稍后再试"
+                    }
+                },
+                status_code=HTTP_429_TOO_MANY_REQUESTS,
+                headers={"Retry-After": str(retry), "Cache-Control": "no-store"},
+            )
+        if (
+            _chat_limiter
+            and is_chat_heavy_path(request.url.path)
+            and request.method in ("POST", "PUT", "PATCH", "DELETE")
+            and not _chat_limiter.allow(f"chat:{ip}")
+        ):
+            retry = _chat_limiter.retry_after(f"chat:{ip}")
+            return JSONResponse(
+                {
+                    "error": {
+                        "message": "Chat rate limit exceeded / 对话请求过于频繁，请稍后再试"
+                    }
+                },
+                status_code=HTTP_429_TOO_MANY_REQUESTS,
+                headers={"Retry-After": str(retry), "Cache-Control": "no-store"},
+            )
+        return await call_next(request)
+
     @app.middleware("http")
     async def log_requests(request: Request, call_next):
         global _log_id_counter

@@ -53,6 +53,7 @@ GITHUB_URL = (
 class AppConfig:
     ignored_providers: Optional[list[str]] = None
     g4f_api_key: Optional[str] = None
+    access_password: Optional[str] = None
     ignore_cookie_files: bool = False
     model: str = None
     provider: str = None
@@ -64,6 +65,10 @@ class AppConfig:
     stream_timeout: int = DEFAULT_STREAM_TIMEOUT
     disable_custom_api_key: bool = False
     g4f_space_api_key: Optional[str] = None
+    # requests/window_seconds, e.g. "20/60". Use "off" to disable.
+    rate_limit: Optional[str] = "20/60"
+    rate_limit_global: Optional[str] = "180/60"
+    trust_proxy: bool = False
 
     @classmethod
     def set_config(cls, **data):
@@ -72,8 +77,30 @@ class AppConfig:
                 setattr(cls, key, value)
 
     @classmethod
+    def resolved_access_password(cls) -> Optional[str]:
+        from .tomgpt_security import resolve_access_password
+
+        return resolve_access_password(
+            cls.access_password,
+            tomgpt_password=os.environ.get("TOMGPT_PASSWORD"),
+            g4f_api_key=cls.g4f_api_key or os.environ.get("G4F_API_KEY"),
+        )
+
+    @classmethod
     def load_from_env(cls):
         cls.g4f_api_key = os.environ.get("G4F_API_KEY", cls.g4f_api_key)
+        if os.environ.get("TOMGPT_PASSWORD"):
+            cls.access_password = os.environ.get("TOMGPT_PASSWORD")
+            # Keep FastAPI Basic Auth path in sync with TomGPT password.
+            if not cls.g4f_api_key:
+                cls.g4f_api_key = cls.access_password
+        if "TOMGPT_RATE_LIMIT" in os.environ:
+            cls.rate_limit = os.environ.get("TOMGPT_RATE_LIMIT")
+        if "TOMGPT_RATE_LIMIT_GLOBAL" in os.environ:
+            cls.rate_limit_global = os.environ.get("TOMGPT_RATE_LIMIT_GLOBAL")
+        cls.trust_proxy = os.environ.get(
+            "TOMGPT_TRUST_PROXY", str(cls.trust_proxy)
+        ).lower() in ("true", "1", "yes")
         cls.timeout = int(os.environ.get("G4F_TIMEOUT", cls.timeout))
         cls.stream_timeout = int(
             os.environ.get("G4F_STREAM_TIMEOUT", cls.stream_timeout)

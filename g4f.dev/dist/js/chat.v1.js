@@ -1118,6 +1118,52 @@ const defaultFilePrompt = () =>
         ? "请仔细阅读我上传的文件，直接给出有用的分析、摘要和关键要点，不要只反问我要做什么。"
         : "Please carefully read the uploaded file(s) and provide a useful analysis, summary, and key points. Do not only ask what I want you to do.";
 
+function tomgptDefaultStartupQuestions() {
+    if (isTomgptZh()) {
+        return [
+            "💬 用两句话介绍 TomGPT，并说明现在可以直接开聊。",
+            "🎨 帮我生成一张简洁的未来城市夜景图片。",
+            "📄 如果我上传一份 PDF，你能帮我提炼要点吗？",
+            "🧠 把「量子纠缠」讲给完全没基础的人听。",
+        ];
+    }
+    return [
+        "💬 Introduce TomGPT in two sentences and confirm I can chat now.",
+        "🎨 Generate a clean futuristic city nightscape image.",
+        "📄 If I upload a PDF, can you extract the key points for me?",
+        "🧠 Explain quantum entanglement to a complete beginner.",
+    ];
+}
+
+function ensureTomgptOnboardingTip() {
+    try {
+        if (appStorage.getItem("tomgpt_onboard_v1") === "1") {
+            return;
+        }
+        const content = document.querySelector(".message.tomgpt-empty .content");
+        if (!content || content.querySelector(".tomgpt-onboard")) {
+            return;
+        }
+        const tip = document.createElement("div");
+        tip.className = "tomgpt-onboard";
+        tip.innerHTML = isTomgptZh()
+            ? `<p>直接输入即可开聊。保持 <strong>TomGPT 自动</strong> 可自动换源；要生图请直接说「生成一张…」。</p><button type="button" class="tomgpt-onboard-dismiss">知道了</button>`
+            : `<p>Just type to chat. Keep <strong>TomGPT Auto</strong> for failover; say “generate an image…” for pictures.</p><button type="button" class="tomgpt-onboard-dismiss">Got it</button>`;
+        tip.querySelector(".tomgpt-onboard-dismiss").addEventListener("click", () => {
+            appStorage.setItem("tomgpt_onboard_v1", "1");
+            tip.remove();
+        });
+        const sub = content.querySelector(".welcome-subtitle");
+        if (sub) {
+            sub.after(tip);
+        } else {
+            content.appendChild(tip);
+        }
+    } catch (e) {
+        console.debug("TomGPT onboarding tip skipped", e);
+    }
+}
+
 let pendingWordExport = false;
 
 function normalizeDetectText(text) {
@@ -4283,6 +4329,7 @@ const say_hello = async () => {
             </div>
         `;
         chatBody.appendChild(message_container.firstElementChild);
+        ensureTomgptOnboardingTip();
     } else {
         to_modify.textContent = "";
         const brand = document.querySelector(".welcome-brand");
@@ -4300,6 +4347,7 @@ const say_hello = async () => {
             void brand.offsetWidth;
             brand.style.animation = "";
         }
+        ensureTomgptOnboardingTip();
     }
 
     to_modify = document.querySelector(`.welcome-message`);
@@ -4471,7 +4519,7 @@ window.addEventListener("hashchange", async (event) => {
 });
 function render_startup_questions() {
     if (!Array.isArray(startup_questions) || !startup_questions.length) {
-        return;
+        startup_questions = tomgptDefaultStartupQuestions();
     }
     try {
         const used_startup_questions = startup_questions.sort(() => .5 - Math.random()).slice(0, 4);
@@ -4495,6 +4543,11 @@ function render_startup_questions() {
     }
 }
 async function load_startup_questions() {
+    // Instant local defaults so the welcome screen is never empty / stuck in English.
+    startup_questions = tomgptDefaultStartupQuestions();
+    if (document.querySelector(".message.tomgpt-empty")) {
+        render_startup_questions();
+    }
     let prompt = `Generate a JSON-formatted list of engaging and diverse questions I can ask you at the start of a new conversation.
 Example: 
 \`\`\`json
@@ -4506,7 +4559,9 @@ Example:
     ]
 }
 \`\`\``;
-    if (appStorage.getItem(framework.translationKey) && navigator.language.startsWith("en") == false) {
+    if (isTomgptZh()) {
+        prompt += `\n全部问题必须使用简体中文，简洁自然，适合第一次打开 TomGPT 的用户。`;
+    } else if (appStorage.getItem(framework.translationKey) && navigator.language.startsWith("en") == false) {
         prompt += `\nRespond in ${navigator.language}.`;
     }
     try {
@@ -4514,8 +4569,22 @@ Example:
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${await response.text()}`);
         }
-        startup_questions = await response.json()
-        startup_questions = startup_questions.q || startup_questions.questions || startup_questions;
+        let remote = await response.json()
+        remote = remote.q || remote.questions || remote;
+        if (Array.isArray(remote) && remote.length) {
+            // Prefer Chinese set when UI language is Chinese.
+            if (isTomgptZh()) {
+                const zhCount = remote.filter((q) => /[\u4e00-\u9fff]/.test(String(q))).length;
+                if (zhCount >= Math.ceil(remote.length / 2)) {
+                    startup_questions = remote;
+                }
+            } else {
+                startup_questions = remote;
+            }
+            if (document.querySelector(".message.tomgpt-empty")) {
+                render_startup_questions();
+            }
+        }
     } catch (e) {
         add_error("Failed to parse startup questions:", e);
     }
@@ -4742,8 +4811,11 @@ async function load_providers(providers, provider_options, providersListContaine
         }
         let option = document.createElement("option");
         option.value = provider.name;
-        option.dataset.label = provider.label;
-        option.text = provider.label
+        const baseLabel = provider.name === "AnyProvider"
+            ? (isTomgptZh() ? "TomGPT 自动" : "TomGPT Auto")
+            : provider.label;
+        option.dataset.label = baseLabel;
+        option.text = baseLabel
             + (window.getModelTags ? getModelTags(provider) : "")
             + (provider.hf_space ? " 🤗" : "")
             + (provider.nodriver ? " 🌐" : "")
@@ -4753,6 +4825,12 @@ async function load_providers(providers, provider_options, providersListContaine
             option.dataset.parent = provider.parent;
         optGroupCore.appendChild(option);
     });
+    // Keep the static first option label aligned with TomGPT branding.
+    const anyStatic = providerSelect.querySelector('option[value="AnyProvider"]');
+    if (anyStatic && !anyStatic.dataset.label) {
+        anyStatic.textContent = isTomgptZh() ? "TomGPT 自动 / Auto" : "TomGPT Auto";
+        anyStatic.dataset.label = isTomgptZh() ? "TomGPT 自动" : "TomGPT Auto";
+    }
     providerSelect.appendChild(optGroupCore);
     if (providerSelect.querySelector('option[value="AnyProvider"]')) {
         providerSelect.value = "AnyProvider";
@@ -5294,35 +5372,17 @@ async function on_api() {
 }
 
 async function load_version() {
-    let new_version = document.querySelector(".new_version");
-    if (new_version) return;
-    let text = "version ~ "
-    api("version").then((versions)=>{
-        window.title = 'TomGPT';
-        if (document.title == "TomGPT" || document.title.startsWith("TomGPT") || document.title.startsWith("G4F")) {
-            document.title = window.title;
-        }
-        if (versions["latest_version"] && versions["version"] != versions["latest_version"]) {
-            let release_url = 'https://github.com/xtekky/gpt4free/releases/latest';
-            let title = `${framework.translate('New version:')} ${versions["latest_version"]}`;
-            text += `<a href="${release_url}" target="_blank" title="${title}">${versions["version"]}</a> 🆕`;
-            new_version = document.createElement("div");
-            new_version.classList.add("new_version");
-            const link = `<a href="${release_url}" target="_blank" title="${title}">v${versions["latest_version"]}</a>`;
-            new_version.innerHTML = `G4F ${link}&nbsp;&nbsp;🆕`;
-            new_version.addEventListener("click", ()=>new_version.parentElement.removeChild(new_version));
-            document.body.appendChild(new_version);
-        } else {
-            text += versions["version"];
-        }
-        document.getElementById("version_text").innerHTML = text
-    }).catch((e)=>{
-        console.error("Error loading version:", e);
-        fetch("https://api.github.com/repos/xtekky/gpt4free/releases/latest").then((response)=>response.json()).then((data)=>{
-            document.getElementById("version_text").innerText = text + data.tag_name;
-        });
-    });
-    setTimeout(load_version, 1000 * 60 * 60); // 1 hour
+    window.title = 'TomGPT';
+    if (document.title == "TomGPT" || document.title.startsWith("TomGPT") || document.title.startsWith("G4F")) {
+        document.title = window.title;
+    }
+    const versionEl = document.getElementById("version_text");
+    if (versionEl) {
+        versionEl.textContent = "";
+        versionEl.setAttribute("aria-hidden", "true");
+    }
+    // Suppress upstream g4f "new version" toast that links users away.
+    document.querySelectorAll(".new_version").forEach((el) => el.remove());
 }
 
 async function upload_image(file) {

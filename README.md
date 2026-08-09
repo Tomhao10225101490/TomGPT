@@ -68,8 +68,8 @@ Windows PowerShell 激活虚拟环境：
 常用启动参数：
 
 ```bash
-# 局域网访问；请配合操作系统防火墙并仅在可信网络使用
-python start_tomgpt.py --host 0.0.0.0 --port 8080
+# 局域网/公网绑定必须设置密码；并配合防火墙，仅在可信网络或反代后使用
+TOMGPT_PASSWORD='your-strong-password' python start_tomgpt.py --host 0.0.0.0 --port 8080
 
 # 调试日志；不要把日志中的敏感信息公开
 python start_tomgpt.py --debug
@@ -164,7 +164,7 @@ TomGPT 源代码免费并使用 GPL-3.0；默认路径不要求付费 SDK。这�
 
 #### 能否把 `0.0.0.0:8080` 直接开放到公网？
 
-不建议。当前启动方式使用 Flask 开发服务器，而且 TomGPT 没有实现完整的应用级用户认证、租户隔离和滥用防护。请阅读[部署指南](docs/DEPLOYMENT.md)。
+上线前必须设置访问密码（`TOMGPT_PASSWORD` / `--password`）；未设密码时非本机绑定会拒绝启动。同时已启用按 IP 限流。仍建议在前面加 TLS/反代（如 Cloudflare），这不是完整多用户账号体系。详见[部署指南](docs/DEPLOYMENT.md)。
 
 #### 为什么生图失败后没有普通文字回答？
 
@@ -207,10 +207,10 @@ python start_tomgpt.py
 
 Open <http://127.0.0.1:8080/chat/>.
 
-For a trusted LAN only:
+For LAN/public binds, a password is required:
 
 ```bash
-python start_tomgpt.py --host 0.0.0.0 --port 8080
+TOMGPT_PASSWORD='your-strong-password' python start_tomgpt.py --host 0.0.0.0 --port 8080
 ```
 
 ### How does the whole architecture work? / 整体架构如何工作？
@@ -235,7 +235,7 @@ No. The UI and its state are local, but prompts and attachments must reach the s
 
 #### Is it safe to expose the development server publicly?
 
-No. The local Flask development server and current no-auth application boundary are not suitable for a long-lived public deployment. Follow the [deployment guidance](docs/DEPLOYMENT.md).
+Only after setting `TOMGPT_PASSWORD` (or `--password`). Non-loopback binds without a password are refused, and per-IP rate limits are enabled by default. Still put TLS/a reverse proxy in front; this is not a full multi-user account system. See the [deployment guide](docs/DEPLOYMENT.md).
 
 #### Is every listed model always available?
 

@@ -26,8 +26,8 @@
     <!-- Canonical URL to avoid duplicate content issues -->
     <link rel="canonical" href="/chat/" />
 
-    <link rel="stylesheet" href="../dist/css/style.css?v=tomgpt-brand-11" />
-    <link rel="stylesheet" href="../dist/css/tomgpt.css?v=tomgpt-brand-11" />
+    <link rel="stylesheet" href="../dist/css/style.css?v=tomgpt-ui-12" />
+    <link rel="stylesheet" href="../dist/css/tomgpt.css?v=tomgpt-ui-12" />
     <link rel="stylesheet" href="../dist/css/all.min.css" />
     <link rel="stylesheet" href="../dist/css/dracula.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe/dist/photoswipe.css" />
@@ -38,9 +38,9 @@
     <link rel="apple-touch-icon" href="../dist/img/g4f.svg">
     <link rel="manifest" href="../dist/img/site.webmanifest">
 
-    <script src="../dist/js/framework.js?v=tomgpt-brand-11" defer></script>
-    <script src="../dist/js/mcp-client.js?v=tomgpt-brand-11" defer></script>
-    <script src="../dist/js/chat.v1.js?v=tomgpt-brand-11" defer></script>
+    <script src="../dist/js/framework.js?v=tomgpt-ui-12" defer></script>
+    <script src="../dist/js/mcp-client.js?v=tomgpt-ui-12" defer></script>
+    <script src="../dist/js/chat.v1.js?v=tomgpt-ui-12" defer></script>
     <script src="../dist/js/recorder.js" async></script>
     <script src="../dist/js/highlight.min.js" async></script>
     <script src="../dist/js/highlightjs-copy.min.js" async></script>
@@ -103,8 +103,8 @@
       window.conversation_id = "";
     </script>
 
-    <link rel="preload" href="../dist/css/style.css?v=tomgpt-brand-11" as="style">
-    <link rel="preload" href="../dist/js/chat.v1.js?v=tomgpt-brand-11" as="script">
+    <link rel="preload" href="../dist/css/style.css?v=tomgpt-ui-12" as="style">
+    <link rel="preload" href="../dist/js/chat.v1.js?v=tomgpt-ui-12" as="script">
 </head>
 <body class="tomgpt">
     <script async>
@@ -678,7 +678,7 @@ Render audio URLs as HTML: &lt;audio controls src=&quot;http://example/audio.mp3
                     <div class="field">
                         <label for="model" class="sr-only">Select AI Model</label>
                         <select name="model" id="model" aria-describedby="modelHelp">
-                            <option value="" selected>Model: Default</option>
+                            <option value="" selected>模型：默认 / Default</option>
                         </select>
                         <small id="modelHelp" class="sr-only">Select AI model to use for conversations.</small>
 
@@ -704,7 +704,7 @@ Render audio URLs as HTML: &lt;audio controls src=&quot;http://example/audio.mp3
                     <div class="field">
                         <label for="provider" class="sr-only">Select Provider</label>
                         <select name="provider" id="provider" aria-describedby="providerHelp">
-                            <option value="AnyProvider">Provider: Auto</option>
+                            <option value="AnyProvider">TomGPT 自动 / Auto</option>
                         </select>
                         <small id="providerHelp" class="sr-only">Select AI provider for conversations.</small>
                     </div>

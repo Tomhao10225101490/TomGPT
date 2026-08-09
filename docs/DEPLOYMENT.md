@@ -2,7 +2,7 @@
 
 [中文](#中文部署指南) · [English](#english-deployment-guide) · [用户指南](USER_GUIDE.md) · [架构](ARCHITECTURE.md) · [返回主页](../README.md)
 
-> 关键结论：`python start_tomgpt.py` 启动的是适合开发和个人本地使用的 Flask GUI。把它绑定到 `0.0.0.0` 或接入隧道不会自动获得生产级安全能力。
+> 关键结论：`python start_tomgpt.py` 启动的是适合开发和个人使用的 Flask GUI。公网绑定前必须设置访问密码；应用已内置按 IP 限流。TLS、反代与完整多用户体系仍需额外配置。
 
 ---
 
@@ -12,10 +12,47 @@
 
 | 方式 | 适用场景 | 网络范围 | 当前安全判断 |
 |---|---|---|---|
-| 本机 `127.0.0.1` | 个人使用、开发、测试 | 仅本机 | 推荐默认 |
-| 局域网 `0.0.0.0` | 同一可信 Wi-Fi 的临时访问 | 局域网可达 | 仅可信网络和防火墙规则下使用 |
-| 临时 Cloudflare Tunnel | 临时远程演示、短时自用 | 公网 URL | 必须增加 Access 等访问控制；仍不等于生产 |
-| 生产部署 | 长期、多用户、互联网访问 | 公网 | 需要额外架构；仓库未完整实现 |
+| 本机 `127.0.0.1` | 个人使用、开发、测试 | 仅本机 | 推荐默认；密码可选 |
+| 局域网 / 公网 `0.0.0.0` | 他人访问、上线 | 局域网或公网 | **必须**设置访问密码；已内置按 IP 限流 |
+| 临时 Cloudflare Tunnel | 临时远程演示、短时自用 | 公网 URL | 必须设密码；仍建议命名 Tunnel + Access |
+| 生产部署 | 长期、多用户、互联网访问 | 公网 | 密码 + 限流 + TLS/反代；仍非完整多租户体系 |
+
+### 0. 上线前必做：访问密码与限流
+
+TomGPT 已内置：
+
+1. **共享访问密码**（HTTP Basic / Bearer / `g4f-api-key`）
+2. **按 IP 限流**（对话更严、全站更宽）
+3. **非本机绑定强制密码**：`--host 0.0.0.0` 且未设密码时会拒绝启动
+
+公网上线示例：
+
+```bash
+export TOMGPT_PASSWORD='换成足够长的随机密码'
+export TOMGPT_RATE_LIMIT='20/60'          # 每 IP 每 60 秒最多 20 次对话类请求
+export TOMGPT_RATE_LIMIT_GLOBAL='180/60'  # 每 IP 每 60 秒最多 180 次普通请求
+export TOMGPT_TRUST_PROXY='true'          # 仅在受信 Nginx/Caddy/Cloudflare 后开启
+python start_tomgpt.py --host 0.0.0.0 --port 8080 --trust-proxy
+```
+
+或：
+
+```bash
+python start_tomgpt.py --host 0.0.0.0 --port 8080 \
+  --password '换成足够长的随机密码' \
+  --rate-limit 20/60 \
+  --rate-limit-global 180/60 \
+  --trust-proxy
+```
+
+浏览器会弹出登录框：用户名可随意填写，密码为上面设置的值。也可使用：
+
+- `Authorization: Bearer <password>`
+- 请求头 `g4f-api-key: <password>`
+
+关闭限流（不推荐公网）：`TOMGPT_RATE_LIMIT=off` 与 `TOMGPT_RATE_LIMIT_GLOBAL=off`。
+
+说明：这是上线最低防护，不能替代 Cloudflare Access、完整账号体系或多租户隔离。`TOMGPT_TRUST_PROXY=true` 仅在你信任反代、且反代会覆盖伪造的 `X-Forwarded-For` 时开启。
 
 ### 1. 本机部署
 
@@ -54,35 +91,34 @@ http://<服务器局域网IP>:8080/chat/
 
 ### 3. 临时 Cloudflare Tunnel
 
-Cloudflare Quick Tunnel 可以把本地端口临时映射为公网 HTTPS URL。它适合短时演示，不适合把当前无完整鉴权的应用长期公开。
+Cloudflare Quick Tunnel 可以把本地端口临时映射为公网 HTTPS URL。它适合短时演示，不适合长期公开。
 
 安装 `cloudflared` 后，示例命令：
 
 ```bash
-python start_tomgpt.py --host 127.0.0.1 --port 8080
+TOMGPT_PASSWORD='your-strong-password' python start_tomgpt.py --host 127.0.0.1 --port 8080
 cloudflared tunnel --url http://127.0.0.1:8080
 ```
 
 注意：
 
 - 临时 URL 是敏感访问入口，不要写入 README、Git、issue、日志截图或固定配置。
-- URL 泄露后，知道地址的人可能直接访问应用。
-- Quick Tunnel 自身不替代 TomGPT 的用户认证。
+- 即使有应用密码，也不要把 Quick Tunnel URL 当长期主页。
 - 如果必须远程访问，优先使用命名 Tunnel + Cloudflare Access（身份提供商、允许名单、短会话），并限制来源。
-- Tunnel 只解决传输与可达性，不解决应用级授权、CSRF、请求限流、恶意上传、provider 配额滥用和多用户隔离。
+- Tunnel 只解决传输与可达性；应用密码与限流是最低门槛，仍不覆盖完整 CSRF、多用户隔离与 provider 配额治理。
 - 使用结束后停止 `cloudflared` 与 TomGPT 进程。
 
 不要把临时隧道 URL设为 GitHub homepage。
 
-### 4. 为什么 Flask 开发服务器不能长期公开？
+### 4. 为什么仍不能把它当成完整生产多用户系统？
 
-当前启动入口使用 g4f GUI 的 Flask 服务路径，面向本地开发体验。即使没有显式开启 `--debug`，也不应把开发服务理解为生产 WSGI 栈。
+当前启动入口使用 g4f GUI 的 Flask 服务路径，面向本地/轻量部署。即使没有显式开启 `--debug`，也不应把开发服务理解为完整生产 WSGI 栈。
 
-当前仓库没有完整实现以下公网多用户能力：
+已内置共享访问密码与按 IP 限流，但仓库仍没有完整实现：
 
-- 强制登录、多因素认证和细粒度授权。
+- 多用户账号、多因素认证和细粒度授权。
 - 完整的 CSRF、安全会话和跨租户隔离策略。
-- 全局与单用户请求限流、上传配额和滥用检测。
+- 按用户的配额、上传额度与滥用检测。
 - 统一 TLS、HSTS、CSP 和安全响应头策略。
 - provider 凭据保险库、密钥轮换和审计。
 - 持久数据库迁移、备份、恢复和数据保留策略。
@@ -149,10 +185,11 @@ flowchart LR
 
 ### 8. 发布前检查清单
 
-- [ ] 默认入口仍绑定 `127.0.0.1`。
-- [ ] 公网访问前有强制认证和 TLS。
+- [ ] 默认入口仍绑定 `127.0.0.1`；公网改用 `0.0.0.0` 时已设置 `TOMGPT_PASSWORD`。
+- [ ] 公网访问前有强制认证（应用密码和/或 Cloudflare Access）与 TLS。
+- [ ] 已确认 `TOMGPT_RATE_LIMIT` / `TOMGPT_RATE_LIMIT_GLOBAL` 适合预期流量。
 - [ ] 明确允许的用户、provider、模型和数据类型。
-- [ ] 限制请求速率、并发、上传大小和磁盘使用。
+- [ ] 限制并发、上传大小和磁盘使用。
 - [ ] 秘密不在代码、镜像、日志、浏览器包或 Git 历史中。
 - [ ] Python 与 JavaScript 测试通过。
 - [ ] SSE、停止生成、failover、上传和 DOCX 经真实环境验证。
@@ -168,10 +205,24 @@ flowchart LR
 
 | Mode | Intended use | Assessment |
 |---|---|---|
-| Local `127.0.0.1` | Personal use and development | Recommended default |
-| LAN `0.0.0.0` | Temporary access on a trusted network | Use firewall restrictions |
-| Temporary Cloudflare Tunnel | Short remote demo or personal session | Add Access controls; not production |
-| Long-lived public service | Multi-user Internet deployment | Requires architecture not yet implemented |
+| Local `127.0.0.1` | Personal use and development | Recommended default; password optional |
+| LAN / public `0.0.0.0` | Shared or public access | **Requires** access password; per-IP rate limits enabled |
+| Temporary Cloudflare Tunnel | Short remote demo or personal session | Password required; prefer named Tunnel + Access |
+| Long-lived public service | Multi-user Internet deployment | Password + rate limits + TLS/proxy; still not full multi-tenant |
+
+### Access password and rate limits (required before public launch)
+
+TomGPT includes a shared access password (HTTP Basic / Bearer / `g4f-api-key`), per-IP rate limits, and a non-loopback bind guard that refuses `--host 0.0.0.0` without a password.
+
+```bash
+export TOMGPT_PASSWORD='use-a-long-random-password'
+export TOMGPT_RATE_LIMIT='20/60'
+export TOMGPT_RATE_LIMIT_GLOBAL='180/60'
+export TOMGPT_TRUST_PROXY='true'   # only behind a trusted reverse proxy
+python start_tomgpt.py --host 0.0.0.0 --port 8080 --trust-proxy
+```
+
+Browser Basic Auth: username can be anything; password is the shared secret. This is a minimum gate, not a full account system.
 
 ### Local
 
@@ -190,9 +241,7 @@ Open <http://127.0.0.1:8080/chat/>. Local hosting still sends prompts and requir
 python start_tomgpt.py --host 0.0.0.0 --port 8080
 ```
 
-Open `http://<server-lan-ip>:8080/chat/` from another device. Restrict the port to the trusted subnet, avoid guest Wi-Fi, stop the process when finished, and never configure public router port forwarding.
-
-Binding all interfaces changes reachability only. It adds no authentication or encryption.
+Open `http://<server-lan-ip>:8080/chat/` from another device. Non-loopback binds require `--password` / `TOMGPT_PASSWORD`. Restrict the port to the trusted subnet, avoid guest Wi-Fi, and never configure public router port forwarding without TLS and a password.
 
 ### Temporary Cloudflare Tunnel
 
@@ -203,17 +252,17 @@ python start_tomgpt.py --host 127.0.0.1 --port 8080
 cloudflared tunnel --url http://127.0.0.1:8080
 ```
 
-Treat the generated URL as sensitive. Do not commit it, publish it in documentation, or use it as the repository homepage. A Quick Tunnel does not add application authentication. Prefer a named tunnel protected by Cloudflare Access and an explicit allowlist for any necessary remote access.
+Treat the generated URL as sensitive. Do not commit it, publish it in documentation, or use it as the repository homepage. Always set `TOMGPT_PASSWORD` (or `--password`) even for Quick Tunnels. Prefer a named tunnel protected by Cloudflare Access and an explicit allowlist for any necessary remote access.
 
-A tunnel does not solve authorization, CSRF, upload abuse, rate limiting, quota abuse, or tenant isolation. Stop both processes after the temporary session.
+A tunnel does not replace TLS edge policy, CSRF/session hardening, upload abuse controls, provider-quota governance, or tenant isolation. Stop both processes after the temporary session.
 
-### Why is the current server not a public production server?
+### Why is the current server not a full public production server?
 
-The current Flask GUI is designed for local development and personal use. This repository does not yet provide a complete public multi-user boundary for:
+The current Flask GUI is designed for local development and personal use. Shared password + per-IP rate limits are now built in, but this repository still does not provide a complete public multi-user boundary for:
 
-- strong authentication and authorization;
+- per-user accounts, MFA, and fine-grained authorization;
 - CSRF/session hardening and tenant isolation;
-- per-user/global rate limits, quotas, and abuse detection;
+- durable abuse detection, quotas, and provider-budget accounting;
 - comprehensive TLS and security-header policy;
 - secret vaulting, rotation, and audit;
 - durable database migration, backup, retention, and recovery;
